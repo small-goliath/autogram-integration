@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { AlertDialog, AlertDialogAction, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { fetchWithAdminAuth } from "@/lib/utils";
 import { FormEvent, useEffect, useState } from 'react';
 import { toast } from 'sonner';
@@ -22,6 +23,8 @@ export function InstagramCheckerManager() {
     
     const [isLoading, setIsLoading] = useState(false);
     const [needs2FA, setNeeds2FA] = useState(false);
+
+    const [checkpointError, setCheckpointError] = useState<{ title: string; description: string; url: string } | null>(null);
 
     const fetchCheckers = async () => {
         try {
@@ -49,17 +52,29 @@ export function InstagramCheckerManager() {
         }
         setIsLoading(true);
         setNeeds2FA(false);
+        setCheckpointError(null);
 
         try {
-            // Note: Login is not an admin-protected endpoint itself
             const res = await fetch('/api/sns-raise/instagram/login', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ username, password }),
             });
             const data = await res.json();
+
             if (!res.ok) {
-                throw new Error(data.detail || '로그인에 실패했습니다.');
+                const errorDetail = data.detail || '로그인에 실패했습니다.';
+                if (errorDetail.includes("체크포인트")) {
+                    const urlMatch = errorDetail.match(/(https?:\/\/[^\s]+)/);
+                    setCheckpointError({
+                        title: "인스타그램 보안 인증 필요",
+                        description: "계정 보호를 위해 본인 인증이 필요합니다. 아래 '인증 페이지로 이동' 버튼을 눌러 브라우저에서 인증을 완료한 후, 다시 로그인을 시도해주세요.",
+                        url: urlMatch ? urlMatch[0] : 'https://www.instagram.com'
+                    });
+                } else {
+                    throw new Error(errorDetail);
+                }
+                return; 
             }
             
             if (data.two_factor_required) {
@@ -71,7 +86,9 @@ export function InstagramCheckerManager() {
             }
         } catch (err) {
             const errorMessage = err instanceof Error ? err.message : '로그인 중 오류가 발생했습니다.';
-            toast.error(errorMessage);
+            if (!checkpointError) {
+                toast.error(errorMessage);
+            }
         } finally {
             setIsLoading(false);
         }
@@ -85,7 +102,6 @@ export function InstagramCheckerManager() {
         }
         setIsLoading(true);
         try {
-            // Note: 2FA Login is not an admin-protected endpoint itself
             const res = await fetch('/api/sns-raise/instagram/login/2fa', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -166,109 +182,128 @@ export function InstagramCheckerManager() {
     }
 
     return (
-        <div className="space-y-6">
-            <Card>
-                <CardHeader>
-                    <CardTitle>인스타그램 체커 등록</CardTitle>
-                    <CardDescription>
-                        {needs2FA 
-                            ? "2단계 인증 코드를 입력하여 로그인을 완료하세요." 
-                            : "관리 작업을 위한 새 인스타그램 계정을 로그인하여 추가합니다."
-                        }
-                    </CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <form onSubmit={handleSubmit} className="space-y-4">
-                        {!needs2FA && (
-                            <>
-                                <div className="space-y-2">
-                                    <Label htmlFor="username">인스타그램 사용자 이름</Label>
-                                    <Input
-                                        id="username"
-                                        value={username}
-                                        onChange={(e) => setUsername(e.target.value)}
-                                        placeholder="인스타그램 계정"
-                                        required
-                                        disabled={isLoading}
-                                    />
-                                </div>
-                                <div className="space-y-2">
-                                    <Label htmlFor="password">비밀번호</Label>
-                                    <Input
-                                        id="password"
-                                        type="password"
-                                        value={password}
-                                        onChange={(e) => setPassword(e.target.value)}
-                                        required
-                                        disabled={isLoading}
-                                    />
-                                </div>
-                            </>
-                        )}
-                        
-                        {needs2FA && (
-                            <div className="space-y-2">
-                                <Label htmlFor="2fa-code">2단계 인증 코드</Label>
-                                <Input
-                                    id="2fa-code"
-                                    value={verificationCode}
-                                    onChange={(e) => setVerificationCode(e.target.value)}
-                                    placeholder="123456"
-                                    required
-                                    disabled={isLoading}
-                                />
-                            </div>
-                        )}
-                        <Button type="submit" disabled={isLoading} className="w-full">
-                            {isLoading ? '처리 중...' : (needs2FA ? '인증 및 등록' : '로그인 및 등록')}
-                        </Button>
-                    </form>
-                </CardContent>
-            </Card>
+        <>
+            <AlertDialog open={!!checkpointError} onOpenChange={() => setCheckpointError(null)}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>{checkpointError?.title}</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            {checkpointError?.description}
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogAction onClick={() => setCheckpointError(null)}>닫기</AlertDialogAction>
+                        <AlertDialogAction asChild>
+                           <a href={checkpointError?.url} target="_blank" rel="noopener noreferrer">인증 페이지로 이동</a>
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
 
-            <Card>
-                <CardHeader>
-                    <CardTitle>등록된 체커 계정</CardTitle>
-                    <CardDescription>현재 관리 중인 인스타그램 계정 목록입니다.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>ID</TableHead>
-                                <TableHead>사용자 이름</TableHead>
-                                <TableHead className="text-right">작업</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {checkers.length > 0 ? (
-                                checkers.map((checker) => (
-                                    <TableRow key={checker.id}>
-                                        <TableCell>{checker.id}</TableCell>
-                                        <TableCell className="font-medium">{checker.username}</TableCell>
-                                        <TableCell className="text-right">
-                                            <Button
-                                                variant="destructive"
-                                                size="sm"
-                                                onClick={() => handleDelete(checker.id)}
-                                                disabled={isLoading}
-                                            >
-                                                삭제
-                                            </Button>
+            <div className="space-y-6">
+                <Card>
+                    <CardHeader>
+                        <CardTitle>인스타그램 체커 등록</CardTitle>
+                        <CardDescription>
+                            {needs2FA 
+                                ? "2단계 인증 코드를 입력하여 로그인을 완료하세요." 
+                                : "관리 작업을 위한 새 인스타그램 계정을 로그인하여 추가합니다."
+                            }
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <form onSubmit={handleSubmit} className="space-y-4">
+                            {!needs2FA && (
+                                <>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="username">인스타그램 사용자 이름</Label>
+                                        <Input
+                                            id="username"
+                                            value={username}
+                                            onChange={(e) => setUsername(e.target.value)}
+                                            placeholder="인스타그램 계정"
+                                            required
+                                            disabled={isLoading}
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="password">비밀번호</Label>
+                                        <Input
+                                            id="password"
+                                            type="password"
+                                            value={password}
+                                            onChange={(e) => setPassword(e.target.value)}
+                                            required
+                                            disabled={isLoading}
+                                        />
+                                    </div>
+                                </>
+                            )}
+                            
+                            {needs2FA && (
+                                <div className="space-y-2">
+                                    <Label htmlFor="2fa-code">2단계 인증 코드</Label>
+                                    <Input
+                                        id="2fa-code"
+                                        value={verificationCode}
+                                        onChange={(e) => setVerificationCode(e.target.value)}
+                                        placeholder="123456"
+                                        required
+                                        disabled={isLoading}
+                                    />
+                                </div>
+                            )}
+                            <Button type="submit" disabled={isLoading} className="w-full">
+                                {isLoading ? '처리 중...' : (needs2FA ? '인증 및 등록' : '로그인 및 등록')}
+                            </Button>
+                        </form>
+                    </CardContent>
+                </Card>
+
+                <Card>
+                    <CardHeader>
+                        <CardTitle>등록된 체커 계정</CardTitle>
+                        <CardDescription>현재 관리 중인 인스타그램 계정 목록입니다.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>ID</TableHead>
+                                    <TableHead>사용자 이름</TableHead>
+                                    <TableHead className="text-right">작업</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {checkers.length > 0 ? (
+                                    checkers.map((checker) => (
+                                        <TableRow key={checker.id}>
+                                            <TableCell>{checker.id}</TableCell>
+                                            <TableCell className="font-medium">{checker.username}</TableCell>
+                                            <TableCell className="text-right">
+                                                <Button
+                                                    variant="destructive"
+                                                    size="sm"
+                                                    onClick={() => handleDelete(checker.id)}
+                                                    disabled={isLoading}
+                                                >
+                                                    삭제
+                                                </Button>
+                                            </TableCell>
+                                        </TableRow>
+                                    ))
+                                ) : (
+                                    <TableRow>
+                                        <TableCell colSpan={3} className="text-center">
+                                            등록된 체커 계정이 없습니다.
                                         </TableCell>
                                     </TableRow>
-                                ))
-                            ) : (
-                                <TableRow>
-                                    <TableCell colSpan={3} className="text-center">
-                                        등록된 체커 계정이 없습니다.
-                                    </TableCell>
-                                </TableRow>
-                            )}
-                        </TableBody>
-                    </Table>
-                </CardContent>
-            </Card>
-        </div>
+                                )}
+                            </TableBody>
+                        </Table>
+                    </CardContent>
+                </Card>
+            </div>
+        </>
     );
 }

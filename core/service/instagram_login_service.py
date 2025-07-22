@@ -1,6 +1,7 @@
 import logging
 import base64
 import pickle
+import re
 import instaloader
 from sqlalchemy.orm import Session
 from core.Instagram import InstagramLoader
@@ -37,8 +38,14 @@ def login(db: Session, username: str, password: str) -> None:
     except Exception as e:
         logger.error(f"{username} 로그인 실패: {e}", exc_info=True)
         error_message = "로그인에 실패했습니다. 사용자 이름과 비밀번호를 확인하세요."
-        if "checkpoint" in str(e).lower():
-            error_message = "체크포인트가 필요합니다. 브라우저를 통해 로그인하여 해결하세요."
+        error_str = str(e)
+        if "checkpoint" in error_str.lower():
+            match = re.search(r"(https://www.instagram.com/challenge/[\S]+)", error_str)
+            if match:
+                url = match.group(1)
+                error_message = f"인스타그램 보안 체크포인트가 필요합니다. 아래 URL을 브라우저에 복사하여 본인 인증을 완료한 후 다시 시도해주세요.\n\n{url}"
+            else:
+                error_message = "체크포인트가 필요합니다. 브라우저를 통해 로그인하여 해결하세요. (인증 URL을 가져올 수 없습니다)"
         raise InstagramLoginError(error_message) from e
 
 def login_2fa(db: Session, username: str, verification_code: str) -> None:
