@@ -82,3 +82,8 @@ class Admin(Base):
     id = Column(Integer, primary_key=True, index=True)
     username = Column(String(32), unique=True, nullable=False)
     ap_key = Column(String(32), nullable=False)
+
+class RequestByWeek(Base):
+    __tablename__ = 'request_by_week'
+    username = Column(String(32), primary_key=True)
+    link = Column(String(255), primary_key=True)
