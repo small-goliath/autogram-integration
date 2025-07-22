@@ -24,9 +24,6 @@ def verify_actions(db: Session):
     logger.info("카카오톡 활동 검증 갱신 배치를 시작합니다.")
     discord = Discord()
     
-    verified_count = 0
-    failed_count = 0
-    
     try:
         # 1. checker 계정 정보 조회
         checkers: List[CheckerDetail] = checkers_service.get_checkers(db)
@@ -82,21 +79,15 @@ def verify_actions(db: Session):
                         if verification.username in likers and verification.username in commenters:
                             logger.info(f"'{verification.username}'의 좋아요 및 댓글을 확인했습니다. 인증 정보를 삭제합니다.")
                             verification_service.delete_verification(db, verification.id)
-                            verified_count += 1
                         else:
                             logger.warning(f"'{verification.username}'의 활동을 찾지 못했습니다. (좋아요: {verification.username in likers}, 댓글: {verification.username in commenters})")
-                            failed_count += 1
             
             except Exception as e:
                 logger.error(f"'{link}' 링크 처리 중 오류 발생: {e}")
                 failed_count += len(user_verifications)
 
         # 5. 검증 결과 요약
-        summary = f"""
-        카카오톡 활동 검증 배치 완료
-        - 성공: {verified_count}건
-        - 실패: {failed_count}건
-        """
+        summary = "카카오톡 활동 검증 배치 완료"
         logger.info(summary)
         discord.send_message(summary)
 

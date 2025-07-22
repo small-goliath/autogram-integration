@@ -11,6 +11,7 @@ from backend.routes.sns_raise import unfollowers
 from backend.routes.sns_raise import users
 from backend.routes.sns_raise import groups
 from backend.routes.sns_raise import verifications
+from backend.routes import last_week
 
 api_router = APIRouter()
 api_router.include_router(admin_auth.router, prefix="/admin/auth", tags=["admin", "auth"])
@@ -25,3 +26,4 @@ api_router.include_router(unfollowers.router, prefix="/sns-raise/unfollowers", t
 api_router.include_router(users.router, prefix="/sns-raise/users", tags=["sns_raise", "users"])
 api_router.include_router(groups.router, prefix="/sns-raise/groups", tags=["sns_raise", "groups"])
 api_router.include_router(verifications.router, prefix="/sns-raise/verifications", tags=["verifications"])
+api_router.include_router(last_week.router, prefix="/last-week", tags=["last_week"])

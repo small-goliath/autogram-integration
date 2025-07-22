@@ -42,6 +42,7 @@ export const Navbar = () => {
 
   const navItems = [
     { name: "공지사항", href: "/notice" },
+    { name: "지난주 현황", href: "/last-week-status" },
     { name: "SNS 키우기 품앗이 현황", href: "/sns-raise" },
     {
       name: "[AI] 자동 댓글 받기 신청",
@@ -53,7 +54,7 @@ export const Navbar = () => {
       href: "/sns-raise/ai-comment-producer",
       count: producerCount,
     },
-    { name: "인스타 언팔검색기", href: "/unfollow-checker" },
+    { name: "인스타 언팔검색기", href: "/unfollow-checker" }
   ];
 
   return (

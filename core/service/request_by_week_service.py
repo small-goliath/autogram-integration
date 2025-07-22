@@ -27,3 +27,14 @@ def update_request_by_week(db: Session, parsed_links: list[KakaoTalk]):
     except Exception as e:
         logger.error(f"주간 요청 테이블 업데이트 중 오류 발생: {e}", exc_info=True)
         raise
+
+def get_all_requests(db: Session) -> list[RequestByWeek]:
+    """모든 주간 요청을 조회합니다."""
+    logger.info("모든 주간 요청 조회를 시작합니다.")
+    try:
+        requests = request_by_week_db.get_all_requests(db)
+        logger.info(f"{len(requests)}개의 주간 요청을 반환합니다.")
+        return requests
+    except Exception as e:
+        logger.error(f"모든 주간 요청 조회 중 오류 발생: {e}", exc_info=True)
+        raise
