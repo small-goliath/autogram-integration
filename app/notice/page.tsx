@@ -28,6 +28,7 @@ const NoticePage: NextPage = () => {
               className="rounded-lg"
             />
           </div>
+          <p className="mt-4 text-lg font-semibold">참여코드는  <a href="https://instagram.com/gangggi_e_you" target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">@gangggi_e_you</a> 으로 문의 주세요.</p>
         </section>
 
         <section className="mb-6">
