@@ -7,9 +7,8 @@ from typing import List
 import instaloader
 
 from batch.kakaotalk_parsing import parsing
-from batch.model.models import KakaoTalk
+from batch.models import KakaoTalk
 from batch.notification import Discord
-from batch.util import sleep_to_log
 from core.db_transaction import with_session
 from core.entities import UserActionVerification
 from core.service import (checkers_service, instagram_login_service,
@@ -111,8 +110,6 @@ def verify_actions(db):
                 logger.error(f"게시물({shortcode}) 처리 중 오류 발생: {e}")
                 discord.send_message(f"게시물({shortcode}) 처리 중 오류 발생: {e}")
                 continue
-            finally:
-                sleep_to_log(10)
 
         # 6. 검증 결과 요약
         if saved_count > 0:

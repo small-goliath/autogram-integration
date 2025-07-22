@@ -28,7 +28,7 @@ export default function SnsRaiseAICommentProducer() {
     const fetchGroups = async () => {
       console.log("인스타그램 그룹 목록을 가져옵니다.");
       try {
-        const res = await fetch('/backend/sns-raise/groups');
+        const res = await fetch('/api/sns-raise/groups');
         if (!res.ok) {
           throw new Error('인스타그램 그룹을 불러오는데 실패했습니다.');
         }
@@ -56,7 +56,7 @@ export default function SnsRaiseAICommentProducer() {
     setLoading(true);
     console.log(`[${username}] AI 댓글 생산자 등록 및 로그인 시도 (그룹 ID: ${groupId})`);
     try {
-      const res = await fetch('/backend/sns-raise/producers/login', {
+      const res = await fetch('/api/sns-raise/producers/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, password, group_id: parseInt(groupId) }),
@@ -96,7 +96,7 @@ export default function SnsRaiseAICommentProducer() {
     setLoading(true);
     console.log(`[${username}] AI 댓글 생산자 2단계 인증 시도`);
     try {
-      const res = await fetch('/backend/sns-raise/producers/login/2fa', {
+      const res = await fetch('/api/sns-raise/producers/login/2fa', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, verification_code: verificationCode, group_id: parseInt(groupId) }),

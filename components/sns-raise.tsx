@@ -21,8 +21,8 @@ export default function SnsRaise() {
     const fetchData = async () => {
       try {
         const [verificationsRes, countRes] = await Promise.all([
-          fetch('/backend/sns-raise/verifications'),
-          fetch('/backend/sns-raise/users'),
+          fetch('/api/sns-raise/verifications'),
+          fetch('/api/sns-raise/users'),
         ]);
 
         if (!verificationsRes.ok) {

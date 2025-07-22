@@ -5,7 +5,6 @@ import sys
 from typing import List
 from collections import defaultdict
 from sqlalchemy.orm import Session
-from batch.util import sleep_to_log
 from core.db_transaction import transaction_scope, with_session
 from core.service import checkers_service, instagram_login_service, verification_service
 from batch.notification import Discord

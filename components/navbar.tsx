@@ -15,8 +15,8 @@ export const Navbar = () => {
     const fetchCounts = async () => {
       try {
         const [producerRes, consumerRes] = await Promise.all([
-          fetch("/backend/sns-raise/producers"),
-          fetch("/backend/sns-raise/consumers"),
+          fetch("/api/sns-raise/producers"),
+          fetch("/api/sns-raise/consumers"),
         ]);
 
         if (!producerRes.ok || !consumerRes.ok) {

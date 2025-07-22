@@ -7,7 +7,7 @@ import sys
 import locale
 from datetime import timedelta
 
-from batch.model.models import KakaoTalk
+from batch.models import KakaoTalk
 from batch.notification import Discord
 from batch.util import get_today
 
