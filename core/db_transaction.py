@@ -38,7 +38,7 @@ def get_db_session_context() -> Session:
 
 def with_session(func):
     """
-    데코레이터로, 함수에 데이터베이스 ���션을 제공합니다.
+    데코레이터로, 함수에 데이터베이스 세션을 제공합니다.
     함수의 첫 번째 인자로 세션 객체를 전달합니다.
     """
     def wrapper(*args, **kwargs):

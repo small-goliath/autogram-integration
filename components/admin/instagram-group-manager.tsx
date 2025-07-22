@@ -1,5 +1,6 @@
 'use client';
 
+import { fetchWithAdminAuth } from '@/lib/utils';
 import { FormEvent, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 
@@ -16,10 +17,11 @@ export default function InstagramGroupManager() {
   const fetchGroups = async () => {
     console.log("인스타그램 그룹 목록을 가져옵니다.");
     try {
-      const res = await fetch('/api/sns-raise/groups');
+      const res = await fetchWithAdminAuth('/api/sns-raise/groups');
       if (!res.ok) throw new Error('그룹을 불러오는데 실패했습니다');
       const data = await res.json();
-      setGroups(data);
+      // API 응답이 {groups: [...]} 형태일 수 있으므로 확인
+      setGroups(data.groups || data);
       console.log("인스타그램 그룹 목록을 성공적으로 가져왔습니다:", data);
     } catch (err) {
       console.error("인스타그램 그룹 목록을 가져오는데 실패했습니다:", err);
@@ -37,7 +39,7 @@ export default function InstagramGroupManager() {
     setLoading(true);
     console.log(`인스타그램 그룹 추가를 시도합니다: ${newGroup}`);
     try {
-      const res = await fetch('/api/admin/groups', {
+      const res = await fetchWithAdminAuth('/api/admin/groups', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ type: newGroup }),
@@ -61,7 +63,7 @@ export default function InstagramGroupManager() {
   const deleteGroup = async (groupId: number, type: string) => {
     console.log(`인스타그램 그룹 삭제를 시도합니다: ${type} (ID: ${groupId})`);
     try {
-      const res = await fetch(`/api/admin/groups/${groupId}`, {
+      const res = await fetchWithAdminAuth(`/api/admin/groups/${groupId}`, {
         method: 'DELETE',
       });
       if (!res.ok) {
@@ -113,3 +115,4 @@ export default function InstagramGroupManager() {
     </div>
   );
 }
+

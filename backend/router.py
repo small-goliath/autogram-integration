@@ -3,6 +3,7 @@ from fastapi import APIRouter
 from backend.routes.admin import checkers
 from backend.routes.admin import groups as admin_groups
 from backend.routes.admin import users as admin_users
+from backend.routes.admin import auth as admin_auth
 from backend.routes.sns_raise import instagram
 from backend.routes.sns_raise import producers
 from backend.routes.sns_raise import consumers
@@ -12,6 +13,7 @@ from backend.routes.sns_raise import groups
 from backend.routes.sns_raise import verifications
 
 api_router = APIRouter()
+api_router.include_router(admin_auth.router, prefix="/admin/auth", tags=["admin", "auth"])
 api_router.include_router(checkers.router, prefix="/admin/checkers", tags=["admin", "checkers"])
 api_router.include_router(admin_groups.router, prefix="/admin/groups", tags=["admin", "groups"])
 api_router.include_router(admin_users.router, prefix="/admin/users", tags=["admin", "users"])

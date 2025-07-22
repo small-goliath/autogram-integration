@@ -1,11 +1,14 @@
-from fastapi import APIRouter, Body, Depends, HTTPException
+from typing import List
+from fastapi import APIRouter, Depends, HTTPException
+from fastapi.params import Body
 from sqlalchemy.orm import Session
 
+from backend.routes.admin.auth import verify_admin
 from backend.routes.payloads import CreateInstagramGroupRequest, LoadInstagramGroupResponse, MessageResponse
 from core.db_transaction import get_db
 from core.service import groups_service
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(verify_admin)])
 
 @router.post("", response_model=LoadInstagramGroupResponse)
 def create_group(

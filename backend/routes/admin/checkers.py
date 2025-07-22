@@ -3,12 +3,13 @@ from typing import List
 from fastapi import APIRouter, HTTPException, Response, Depends, Body
 from sqlalchemy.orm import Session
 
+from backend.routes.admin.auth import verify_admin
 from backend.routes.payloads import CheckerDetailResponse, RegisterCheckerRequest
 from core.db_transaction import get_db
 from core.exceptions import AlreadyCreatedError, NotFoundError
 from core.service import checkers_service
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(verify_admin)])
 logger = logging.getLogger(__name__)
 
 @router.get("", response_model=List[CheckerDetailResponse])

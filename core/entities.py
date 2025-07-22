@@ -75,3 +75,10 @@ class UnfollowerCheck(Base):
     @unfollowers.setter
     def unfollowers(self, value):
         self._unfollowers = json.dumps(value) if value is not None else None
+
+class Admin(Base):
+    __tablename__ = "admin"
+
+    id = Column(Integer, primary_key=True, index=True)
+    username = Column(String(32), unique=True, nullable=False)
+    ap_key = Column(String(32), nullable=False)

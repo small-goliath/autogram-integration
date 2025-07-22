@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { fetchWithAdminAuth } from "@/lib/utils";
 import { FormEvent, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 
@@ -24,7 +25,7 @@ export function InstagramCheckerManager() {
 
     const fetchCheckers = async () => {
         try {
-            const response = await fetch('/api/admin/checkers');
+            const response = await fetchWithAdminAuth('/api/admin/checkers');
             if (!response.ok) {
                 throw new Error('체커 계정을 불러오는데 실패했습니다.');
             }
@@ -50,6 +51,7 @@ export function InstagramCheckerManager() {
         setNeeds2FA(false);
 
         try {
+            // Note: Login is not an admin-protected endpoint itself
             const res = await fetch('/api/sns-raise/instagram/login', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -83,6 +85,7 @@ export function InstagramCheckerManager() {
         }
         setIsLoading(true);
         try {
+            // Note: 2FA Login is not an admin-protected endpoint itself
             const res = await fetch('/api/sns-raise/instagram/login/2fa', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -105,7 +108,7 @@ export function InstagramCheckerManager() {
     const registerChecker = async (currentUsername: string) => {
         toast.info(`${currentUsername} 계정을 체커로 등록합니다...`);
         try {
-            const response = await fetch('/api/admin/checkers', {
+            const response = await fetchWithAdminAuth('/api/admin/checkers', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ username: currentUsername }),
@@ -134,7 +137,7 @@ export function InstagramCheckerManager() {
         
         setIsLoading(true);
         try {
-            const response = await fetch(`/api/admin/checkers/${id}`, {
+            const response = await fetchWithAdminAuth(`/api/admin/checkers/${id}`, {
                 method: 'DELETE',
             });
 
