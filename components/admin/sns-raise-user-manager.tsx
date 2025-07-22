@@ -16,7 +16,7 @@ export default function SnsRaiseUserManager() {
   const fetchUsers = async () => {
     console.log("SNS 품앗이 사용자 목록을 가져옵니다.");
     try {
-      const res = await fetch('/api/sns-raise/users');
+      const res = await fetch('/backend/sns-raise/users');
       if (!res.ok) throw new Error('사용자를 불러오는데 실패했습니다');
       const data = await res.json();
       setUsers(data.details); // data.details를 users 상태로 설정
@@ -37,7 +37,7 @@ export default function SnsRaiseUserManager() {
     setLoading(true);
     console.log(`SNS 품앗이 사용자 추가를 시도합니다: ${newUser}`);
     try {
-      const res = await fetch(`/api/admin/users/${newUser}`, {
+      const res = await fetch(`/backend/admin/users/${newUser}`, {
         method: 'POST',
       });
       if (!res.ok) {
@@ -59,7 +59,7 @@ export default function SnsRaiseUserManager() {
   const deleteUser = async (username: string) => {
     console.log(`SNS 품앗이 사용자 삭제를 시도합니다: ${username}`);
     try {
-      const res = await fetch(`/api/admin/users/${username}`, {
+      const res = await fetch(`/backend/admin/users/${username}`, {
         method: 'DELETE',
       });
       if (!res.ok) {

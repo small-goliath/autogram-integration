@@ -2,7 +2,7 @@ import logging
 from fastapi import APIRouter, HTTPException, Body, Depends
 from sqlalchemy.orm import Session
 
-from api.routes.payloads import InstagramLoginRequest, InstagramVerificationCodeRequest, MessageResponse
+from backend.routes.payloads import InstagramLoginRequest, InstagramVerificationCodeRequest, MessageResponse
 from core.db_transaction import get_db
 from core.exceptions import Instagram2FAError, InstagramLoginError
 from core.service import instagram_login_service

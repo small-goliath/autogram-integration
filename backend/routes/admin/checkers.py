@@ -3,7 +3,7 @@ from typing import List
 from fastapi import APIRouter, HTTPException, Response, Depends, Body
 from sqlalchemy.orm import Session
 
-from api.routes.payloads import CheckerDetailResponse, RegisterCheckerRequest
+from backend.routes.payloads import CheckerDetailResponse, RegisterCheckerRequest
 from core.db_transaction import get_db
 from core.exceptions import AlreadyCreatedError, NotFoundError
 from core.service import checkers_service

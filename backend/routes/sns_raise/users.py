@@ -3,7 +3,7 @@ from typing import List
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
-from api.routes.payloads import SnsRaiseUserResponse
+from backend.routes.payloads import SnsRaiseUserResponse
 from core.db_transaction import get_db
 from core.service import users_service
 from core.service.models import UserDetail

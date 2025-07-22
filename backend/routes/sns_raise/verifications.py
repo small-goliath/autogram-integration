@@ -3,7 +3,7 @@ from typing import List
 from fastapi import APIRouter, HTTPException, Depends
 from sqlalchemy.orm import Session
 
-from api.routes.payloads import VerificationDetailResponse
+from backend.routes.payloads import VerificationDetailResponse
 from core.db_transaction import get_db
 from core.service import verification_service
 

@@ -70,7 +70,7 @@ export default function UnfollowChecker() {
     setIsLoggingIn(true);
     console.log(`[${loginUsername}] 로그인 시도`);
     try {
-      const res = await fetch('/api/sns-raise/instagram/login', {
+      const res = await fetch('/backend/sns-raise/instagram/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username: loginUsername, password: loginPassword }),
@@ -109,7 +109,7 @@ export default function UnfollowChecker() {
     setIsLoggingIn(true);
     console.log(`[${loginUsername}] 2단계 인증 시도`);
     try {
-      const res = await fetch('/api/sns-raise/instagram/login/2fa', {
+      const res = await fetch('/backend/sns-raise/instagram/login/2fa', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username: loginUsername, verification_code: verificationCode }),
@@ -137,7 +137,7 @@ export default function UnfollowChecker() {
   const handleLogout = async () => {
     console.log(`[${loginStatus.username}] 로그아웃 시도`);
     try {
-      const res = await fetch('/api/instagram/logout', { method: 'POST' });
+      const res = await fetch('/backend/instagram/logout', { method: 'POST' });
       const data = await res.json();
       if (!res.ok) {
         throw new Error(data.detail || '로그아웃에 실패했습니다.');
@@ -158,7 +158,7 @@ export default function UnfollowChecker() {
     if (!checkUsername) return;
     // console.log(`[${checkUsername}] 상태 확인 API 호출`);
     try {
-      const res = await fetch(`/api/sns-raise/unfollowers/${checkUsername}`);
+      const res = await fetch(`/backend/sns-raise/unfollowers/${checkUsername}`);
       if (!res.ok) {
         console.warn(`[${checkUsername}] 상태 확인 API 응답 오류: ${res.status}`);
         return;
@@ -211,7 +211,7 @@ export default function UnfollowChecker() {
     setLoadingMessage('언팔로워 확인 작업을 시작합니다...');
 
     try {
-      const res = await fetch(`/api/sns-raise/unfollowers/${checkUsername}`, { method: 'POST' });
+      const res = await fetch(`/backend/sns-raise/unfollowers/${checkUsername}`, { method: 'POST' });
       const data = await res.json();
       if (!res.ok) {
         throw new Error(data.detail || '작업을 시작하는데 실패했습니다.');

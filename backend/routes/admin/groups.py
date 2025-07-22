@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Body, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from api.routes.payloads import CreateInstagramGroupRequest, LoadInstagramGroupResponse, MessageResponse
+from backend.routes.payloads import CreateInstagramGroupRequest, LoadInstagramGroupResponse, MessageResponse
 from core.db_transaction import get_db
 from core.service import groups_service
 

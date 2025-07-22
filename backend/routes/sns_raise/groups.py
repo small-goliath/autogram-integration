@@ -2,7 +2,7 @@ from typing import List
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
-from api.routes.payloads import LoadInstagramGroupResponse
+from backend.routes.payloads import LoadInstagramGroupResponse
 from core.db_transaction import get_db
 from core.service import groups_service
 from core.service.models import GroupDetail

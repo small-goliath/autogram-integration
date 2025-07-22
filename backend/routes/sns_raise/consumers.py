@@ -2,7 +2,7 @@ from typing import List
 from fastapi import APIRouter, HTTPException, Body, Depends
 from sqlalchemy.orm import Session
 
-from api.routes.payloads import ConsumersResponse, CreateConsumerRequest, MessageResponse
+from backend.routes.payloads import ConsumersResponse, CreateConsumerRequest, MessageResponse
 from core.db_transaction import get_db
 from core.exceptions import AlreadyCreatedError, InvalidPropertyError
 from core.service import consumer_service

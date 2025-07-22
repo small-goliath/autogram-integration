@@ -1,6 +1,6 @@
 from typing import List
 from fastapi import APIRouter
-from api.routes.payloads import SnsRaiseUserResponse
+from backend.routes.payloads import SnsRaiseUserResponse
 from core.service.models import UserDetail
 from core.service.users_service import delete_user, get_users, save_user
 

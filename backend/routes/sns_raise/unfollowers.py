@@ -2,7 +2,7 @@ import logging
 from fastapi import APIRouter, HTTPException, BackgroundTasks, Depends
 from sqlalchemy.orm import Session
 
-from api.routes.payloads import MessageResponse, UnfollowerCheckStatusResponse
+from backend.routes.payloads import MessageResponse, UnfollowerCheckStatusResponse
 from core.db_transaction import get_db
 from core.service import unfollower_service
 from core.exceptions import UserNotPermittedError
