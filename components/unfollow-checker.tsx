@@ -267,8 +267,13 @@ export default function UnfollowChecker() {
               </AlertDialogHeader>
               <AlertDialogFooter>
                   <AlertDialogAction onClick={() => setCheckpointError(null)}>닫기</AlertDialogAction>
-                  <AlertDialogAction asChild>
-                      <a href={checkpointError?.url} target="_blank" rel="noopener noreferrer">인증 페이지로 이동</a>
+                  <AlertDialogAction onClick={() => {
+                      if (checkpointError?.url) {
+                          window.open(checkpointError.url, '_blank', 'noopener,noreferrer');
+                      }
+                      setCheckpointError(null);
+                  }}>
+                      인증 페이지로 이동
                   </AlertDialogAction>
               </AlertDialogFooter>
           </AlertDialogContent>
