@@ -2,6 +2,7 @@
 
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { Menu } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -10,6 +11,7 @@ export const Navbar = () => {
   const pathname = usePathname();
   const [producerCount, setProducerCount] = useState<number | null>(null);
   const [consumerCount, setConsumerCount] = useState<number | null>(null);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   useEffect(() => {
     const fetchCounts = async () => {
@@ -55,29 +57,47 @@ export const Navbar = () => {
   ];
 
   return (
-    <header className="p-4 flex flex-col sm:flex-row justify-between items-center gap-4 border-b">
-      <div className="flex items-center gap-4">
-        <nav className="flex items-center gap-2">
-          {navItems.map((item) => (
-            <Link key={item.name} href={item.href}>
-              <Button
-                variant={pathname === item.href ? "secondary" : "ghost"}
-                className={cn(
-                  "rounded-md",
-                  pathname === item.href && "text-[#5a67d8]"
-                )}
-              >
-                {item.name}
-                {item.count !== undefined && item.count !== null && (
-                  <span className="ml-2 bg-blue-500 text-white text-xs font-semibold px-2 py-1 rounded-full">
-                    {item.count}명
-                  </span>
-                )}
-              </Button>
-            </Link>
-          ))}
-        </nav>
+    <header className="p-4 flex flex-col md:flex-row justify-between items-center gap-4 border-b">
+      <div className="w-full flex justify-between items-center">
+        <Link href="/" className="text-2xl font-bold text-[#5a67d8]">
+          Autogram
+        </Link>
+        <div className="md:hidden">
+          <Button variant="ghost" onClick={() => setIsMenuOpen(!isMenuOpen)}>
+            <Menu />
+          </Button>
+        </div>
       </div>
+      <nav
+        className={cn(
+          "flex-col md:flex-row md:flex items-center gap-2",
+          isMenuOpen ? "flex w-full" : "hidden"
+        )}
+      >
+        {navItems.map((item) => (
+          <Link
+            key={item.name}
+            href={item.href}
+            className="w-full"
+            onClick={() => setIsMenuOpen(false)}
+          >
+            <Button
+              variant={pathname === item.href ? "secondary" : "ghost"}
+              className={cn(
+                "rounded-md w-full justify-start",
+                pathname === item.href && "text-[#5a67d8]"
+              )}
+            >
+              {item.name}
+              {item.count !== undefined && item.count !== null && (
+                <span className="ml-2 bg-blue-500 text-white text-xs font-semibold px-2 py-1 rounded-full">
+                  {item.count}명
+                </span>
+              )}
+            </Button>
+          </Link>
+        ))}
+      </nav>
     </header>
   );
 };

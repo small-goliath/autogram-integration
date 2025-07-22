@@ -37,7 +37,7 @@ export default function RootLayout({
       <body className={inter.className}>
         <div className="flex flex-col min-h-screen">
           {!isAdminPage && <Navbar />}
-          <main className={`flex-grow ${!isAdminPage ? 'container mx-auto p-4' : ''}`}>
+          <main className="flex-grow w-full container mx-auto p-4">
             {children}
           </main>
         </div>
