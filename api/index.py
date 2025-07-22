@@ -2,7 +2,7 @@ import logging
 import logging.config
 import os
 from fastapi import FastAPI
-from api.router import api_router
+from backend.router import api_router
 
 # 로그 디렉토리 생성
 if not os.path.exists('logs'):
