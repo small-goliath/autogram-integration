@@ -133,7 +133,7 @@ export default function LastWeekStatusPage() {
                 {filteredRequests.map((request, index) => (
                   <TableRow key={index}>
                     <TableCell>{request.username}</TableCell>
-                    <TableCell>
+                    <TableCell className="break-all">
                       <a
                         href={request.link}
                         target="_blank"
