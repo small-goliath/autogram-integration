@@ -6,26 +6,19 @@ import instaloader
 from sqlalchemy.orm import Session
 from core.Instagram import InstagramLoader
 from core.exceptions import Instagram2FAError, InstagramLoginError
-from core.service import instagram_session_service
+from core.service import instagramloader_session_service
 
 logger = logging.getLogger(__name__)
 
-# 이것은 여전히 상태를 유지하지만 여기에 캡슐화되어 있습니다.
-# 더 나은 해결책은 데이터베이스나 캐시(예: Redis)를 사용하여 보류 중인 2FA 세션을 저장하는 것입니다.
 active_loaders = {}
 
 def login(db: Session, username: str, password: str) -> None:
-    """
-    인스타그램에 로그인하고 성공하면 세션을 저장합니다.
-    2FA가 필요한 경우 Instagram2FAError를 발생시킵니다.
-    다른 로그인 실패 시 InstagramLoginError를 발생시킵니다.
-    """
     logger.info(f"{username} 로그인을 시도합니다.")
     try:
         instagram_loader = InstagramLoader(username=username, password=password)
         instagram_loader.login()
         
-        instagram_session_service.save_session(db, username, instagram_loader.L.context)
+        instagramloader_session_service.save_session(db, username, instagram_loader.L.context)
         logger.info(f"{username} 로그인에 성공하고 세션을 저장했습니다.")
 
     except Instagram2FAError:
@@ -63,7 +56,7 @@ def login_2fa(db: Session, username: str, verification_code: str) -> None:
         instagram_loader.verification_code = verification_code
         instagram_loader.login()
         
-        instagram_session_service.save_session(db, username, instagram_loader.L.context)
+        instagramloader_session_service.save_session(db, username, instagram_loader.L.context)
         logger.info(f"{username}의 2FA를 성공적으로 완료하고 세션을 저장했습니다.")
         
         del active_loaders[username]

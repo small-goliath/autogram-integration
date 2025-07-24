@@ -33,6 +33,7 @@ class Producer(Base):
     id = Column(Integer, primary_key=True, index=True)
     username = Column(String(32), unique=True, nullable=False)
     enabled = Column(Integer, default=0, nullable=False)
+    session = Column(String, nullable=False)
     group_id = Column(Integer, nullable=False)
 
 class SnsRaiseUser(Base):

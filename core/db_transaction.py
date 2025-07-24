@@ -16,6 +16,10 @@ def get_db():
     db = SessionLocal()
     try:
         yield db
+        db.commit()
+    except:
+        db.rollback()
+        raise
     finally:
         db.close()
 
@@ -57,6 +61,19 @@ def transaction_scope(session: Session):
     try:
         yield
         session.commit()
+    except Exception:
+        session.rollback()
+        raise
+
+@contextmanager
+def read_only_transaction_scope(session: Session):
+    """
+    특정 코드 블록에 대한 트랜잭션 범위를 제공하는 컨텍스트 관리자입니다.
+    블록이 성공적으로 완료되면 커밋하고, 예외 발생 시 롤백합니다.
+    세션을 직접 닫지는 않습니다.
+    """
+    try:
+        yield
     except Exception:
         session.rollback()
         raise

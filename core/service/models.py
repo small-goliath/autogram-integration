@@ -29,6 +29,7 @@ class ProducerDetail(BaseModel):
     username: str
     enabled: bool
     group_id: int
+    session: str
 
     class Config:
         from_attributes = True

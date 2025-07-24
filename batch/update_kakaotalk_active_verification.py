@@ -6,7 +6,7 @@ from typing import List
 from collections import defaultdict
 from sqlalchemy.orm import Session
 from core.db_transaction import transaction_scope, with_session
-from core.service import checkers_service, instagram_login_service, verification_service
+from core.service import checkers_service, instagramloader_login_service, verification_service
 from batch.notification import Discord
 from instaloader import Post
 from core.service.models import CheckerDetail, VerificationDetail
@@ -39,7 +39,7 @@ def verify_actions(db: Session):
                 logger.warning(f"'{checker.username}' checker에 세션이 없습니다. 건너뜁니다.")
                 continue
             try:
-                L = instagram_login_service.login_with_session(checker.username, checker.session)
+                L = instagramloader_login_service.login_with_session(checker.username, checker.session)
                 if L:
                     logger.info(f"'{checker.username}' 계정으로 로그인 성공.")
                     break

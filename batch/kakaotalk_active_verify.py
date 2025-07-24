@@ -11,8 +11,7 @@ from batch.models import KakaoTalk
 from batch.notification import Discord
 from core.db_transaction import with_session
 from core.entities import UserActionVerification
-from core.service import (checkers_service, instagram_login_service,
-                        users_service, verification_service)
+from core.service import (checkers_service, instagramloader_login_service, users_service, verification_service)
 from core.service.models import CheckerDetail, UserDetail
 
 logging.config.fileConfig('batch/logging.conf', disable_existing_loggers=False)
@@ -54,7 +53,7 @@ def verify_actions(db):
             if not checker.session:
                 logger.warning(f"'{checker.username}' checker에 세션이 없습니다. 건너뜁니다.")
                 continue
-            L = instagram_login_service.login_with_session(checker.username, checker.session)
+            L = instagramloader_login_service.login_with_session(checker.username, checker.session)
             if L:
                 logger.info(f"'{checker.username}' 계정으로 로그인 성공.")
                 break

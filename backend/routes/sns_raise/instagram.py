@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from backend.routes.payloads import InstagramLoginRequest, InstagramVerificationCodeRequest, MessageResponse
 from core.db_transaction import get_db
 from core.exceptions import Instagram2FAError, InstagramLoginError
-from core.service import instagram_login_service
+from core.service import instagramloader_login_service
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -17,7 +17,7 @@ async def login(
 ):
     logger.info(f"사용자 {request.username} 로그인 시도")
     try:
-        instagram_login_service.login(db, request.username, request.password)
+        instagramloader_login_service.login(db, request.username, request.password)
         return MessageResponse(message=f"성공적으로 로그인했습니다: {request.username}")
     except Instagram2FAError:
         logger.warning(f"{request.username}에 2FA가 필요합니다")
@@ -36,7 +36,7 @@ async def login_2fa(
 ):
     logger.info(f"사용자 {request.username}의 2FA 로그인 시도")
     try:
-        instagram_login_service.login_2fa(db, request.username, request.verification_code)
+        instagramloader_login_service.login_2fa(db, request.username, request.verification_code)
         return MessageResponse(message=f"2FA로 성공적으로 로그인했습니다: {request.username}")
     except InstagramLoginError as e:
         logger.error(f"{request.username}의 2FA 로그인 실패: {e}", exc_info=True)

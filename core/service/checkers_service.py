@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from core.database import checker_db
 from core.entities import Checker
 from core.exceptions import AlreadyCreatedError, NotFoundError
-from core.service import instagram_session_service
+from core.service import instagramloader_session_service
 from core.service.models import CheckerDetail
 
 logger = logging.getLogger(__name__)
@@ -23,7 +23,7 @@ def register_checker(db: Session, username: str) -> CheckerDetail:
     if checker_db.get(db, username):
         raise AlreadyCreatedError(f"체커 계정 {username}이(가) 이미 존재합니다.")
 
-    session_str = instagram_session_service.get_session_string(db, username)
+    session_str = instagramloader_session_service.get_session_string(db, username)
     
     if not session_str:
         raise NotFoundError(f"{username}에 대한 활성 세션을 찾을 수 없습니다. 먼저 로그인해야 합니다.")

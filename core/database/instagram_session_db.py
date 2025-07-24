@@ -1,6 +1,6 @@
 import logging
 import pickle
-from instaloader import instaloader
+import instaloader
 from sqlalchemy.orm import Session
 
 from core.entities import InstagramSession
