@@ -84,7 +84,6 @@ def verify_actions(db: Session):
             
             except Exception as e:
                 logger.error(f"'{link}' 링크 처리 중 오류 발생: {e}")
-                failed_count += len(user_verifications)
 
         # 5. 검증 결과 요약
         summary = "카카오톡 활동 검증 배치 완료"
