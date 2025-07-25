@@ -98,7 +98,7 @@ export default function SnsRaise() {
                   rel="noopener noreferrer"
                   className="text-foreground hover:text-primary transition-colors break-all"
                 >
-                  {link}
+                  {index+1}번째 링크 품앗이 하러 가기
                 </a>
               </li>
             ))}

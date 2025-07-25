@@ -125,8 +125,8 @@ export default function LastWeekStatusPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Username</TableHead>
-                  <TableHead>Link</TableHead>
+                  <TableHead>닉네임</TableHead>
+                  <TableHead>링크</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -140,7 +140,7 @@ export default function LastWeekStatusPage() {
                         rel="noopener noreferrer"
                         className="text-blue-500 hover:underline"
                       >
-                        {request.link}
+                        https://autogram.kro.kr/{request.username.split("@")[1]}/{index+1}
                       </a>
                     </TableCell>
                   </TableRow>
