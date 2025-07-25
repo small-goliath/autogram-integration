@@ -1,28 +1,22 @@
-# Node.js & Frontend
-node_modules/
-.next/
-app/
-components/
-lib/
-public/
-assets/
+# Vercel ignores these by default, but good to have
+.git
+.next
+node_modules
 
-# Python
-.venv/
+# Python virtual environment
+.venv
 __pycache__/
 
-# Git & Configs
-.git/
-.gitignore
-*.md
-.env*
-*.json
-*.js
-*.ts
-*.tsx
-*.yaml
-*.conf
-
-# Other
+# Local scripts and logs
 batch/
 logs/
+
+# Environment variables
+.env*
+!/.env.production.local
+!/.env.development.local
+!/.env.local
+!/.env.example
+
+# Other
+*.md
