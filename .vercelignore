@@ -1,0 +1,28 @@
+# Node.js & Frontend
+node_modules/
+.next/
+app/
+components/
+lib/
+public/
+assets/
+
+# Python
+.venv/
+__pycache__/
+
+# Git & Configs
+.git/
+.gitignore
+*.md
+.env*
+*.json
+*.js
+*.ts
+*.tsx
+*.yaml
+*.conf
+
+# Other
+batch/
+logs/
