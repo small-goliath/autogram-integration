@@ -2,7 +2,7 @@ import logging
 from sqlalchemy.orm import Session
 from core.database import request_by_week_db
 from core.entities import RequestByWeek
-from batch.models import KakaoTalk
+from core.service.models import KakaoTalk
 
 logger = logging.getLogger(__name__)
 

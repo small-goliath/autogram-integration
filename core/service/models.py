@@ -78,3 +78,10 @@ class Message(BaseModel):
 
     class Config:
         from_attributes = True
+
+class KakaoTalk(BaseModel):
+    username: str
+    link: str
+
+    class Config:
+        from_attributes = True

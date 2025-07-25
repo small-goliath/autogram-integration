@@ -21,3 +21,4 @@ logs/
 # Other
 *.md
 .env.example
+.gitignore
