@@ -21,4 +21,3 @@ logs/
 # Other
 *.md
 .env.example
-requirements.txt
