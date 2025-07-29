@@ -1,11 +1,12 @@
 import locale
-import codecs
 from datetime import datetime, timedelta, timezone
 import logging
 import os
 from time import sleep
 from typing import List
 from dotenv import load_dotenv
+import random
+
 
 logger = logging.getLogger(__name__)
 
@@ -25,6 +26,6 @@ def sleep_by_count(count: int, amount: int, sec: int):
     if count % amount == 0:
         sleep_to_log(sec)
 
-def sleep_to_log(sec: int):
+def sleep_to_log(sec: int = random.randint(5, 20)):
     logger.info(f"{sec}초 중단.")
     sleep(sec)

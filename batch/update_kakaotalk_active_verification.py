@@ -5,6 +5,8 @@ import sys
 from typing import List
 from collections import defaultdict
 from sqlalchemy.orm import Session
+from sqlalchemy.sql.functions import random
+from batch.util import sleep_to_log
 from core.db_transaction import transaction_scope, with_session
 from core.service import checkers_service, instagramloader_login_service, verification_service
 from batch.notification import Discord
@@ -73,7 +75,9 @@ def verify_actions(db: Session):
                     post = Post.from_shortcode(L.context, shortcode)
 
                     likers = {like.username for like in post.get_likes()}
+                    sleep_to_log()
                     commenters = {comment.owner.username for comment in post.get_comments()}
+                    sleep_to_log()
 
                     for verification in user_verifications:
                         if verification.username in likers and verification.username in commenters:
@@ -84,6 +88,7 @@ def verify_actions(db: Session):
             
             except Exception as e:
                 logger.error(f"'{link}' 링크 처리 중 오류 발생: {e}")
+                discord.send_message(str(e))
 
         # 5. 검증 결과 요약
         summary = "카카오톡 활동 검증 배치 완료"
