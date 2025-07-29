@@ -90,7 +90,7 @@ def verify_actions(db: Session):
                     likers = {like.username for like in post.get_likes()}
                     sleep_to_log()
                     commenters = {comment.owner.username for comment in post.get_comments()}
-                    sleep_to_log()
+                    sleep_to_log(60)
 
                     for verification in user_verifications:
                         if verification.username in likers and verification.username in commenters:
