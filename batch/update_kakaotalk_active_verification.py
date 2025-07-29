@@ -2,6 +2,7 @@ import logging
 import logging.config
 import re
 import sys
+import json
 from typing import List
 from collections import defaultdict
 from sqlalchemy.orm import Session
@@ -36,6 +37,7 @@ def verify_actions(db: Session):
         
         # 2. checker 계정으로 로그인 시도
         L = None
+        successful_checker = None
         for checker in checkers:
             if not checker.session:
                 logger.warning(f"'{checker.username}' checker에 세션이 없습니다. 건너뜁니다.")
@@ -44,6 +46,7 @@ def verify_actions(db: Session):
                 L = instagramloader_login_service.login_with_session(checker.username, checker.session)
                 if L:
                     logger.info(f"'{checker.username}' 계정으로 로그인 성공.")
+                    successful_checker = checker
                     break
             except Exception as e:
                 logger.error(f"'{checker.username}' 계정으로 로그인 중 오류 발생: {e}")
@@ -53,6 +56,16 @@ def verify_actions(db: Session):
             logger.error("모든 checker 계정으로 로그인에 실패했습니다.")
             discord.send_message("활동 검증 checker 계정 로그인 실패.")
             sys.exit(1)
+
+        # 로그인 성공 시 세션 갱신
+        try:
+            with transaction_scope(db):
+                session_data = L.context.get_session()
+                session_str = json.dumps(session_data)
+                checkers_service.update_checker_session(db, successful_checker.username, session_str)
+        except Exception as e:
+            logger.error(f"'{successful_checker.username}' 세션 갱신 중 오류 발생: {e}")
+            discord.send_message(f"경고: '{successful_checker.username}' 체커 세션 갱신 실패. 다음 실행 시 문제가 발생할 수 있습니다.")
 
         # 3. 모든 user_action_verification 조회 후 링크별로 그룹화
         verifications: list[VerificationDetail] = verification_service.get_verifications_service(db)

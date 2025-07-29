@@ -32,3 +32,11 @@ def register_checker(db: Session, username: str) -> CheckerDetail:
     logger.info(f"체커 계정 {username}을(를) 성공적으로 등록했습니다.")
     
     return CheckerDetail.from_orm(new_checker)
+
+def update_checker_session(db: Session, username: str, session: str) -> None:
+    checker = checker_db.get(db, username)
+    if not checker:
+        raise NotFoundError(f"체커 계정 {username}을(를) 찾을 수 없습니다.")
+    
+    checker_db.save(db, username, session)
+    logger.info(f"체커 계정 {username}의 세션을 업데이트했습니다.")
