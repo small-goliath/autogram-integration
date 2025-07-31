@@ -2,16 +2,16 @@ import logging
 import logging.config
 import re
 import sys
-import json
+import os
+import instaloader
 from typing import List
 from collections import defaultdict
 from sqlalchemy.orm import Session
-from sqlalchemy.sql.functions import random
 from batch.util import sleep_to_log
-from core.db_transaction import transaction_scope, with_session
-from core.service import checkers_service, instagramloader_login_service, verification_service
+from core.db_transaction import read_only_transaction_scope, transaction_scope, with_session
+from core.service import checkers_service, instagramloader_login_service, instagramloader_session_service, verification_service
 from batch.notification import Discord
-from instaloader import Post
+from instaloader import Post, Profile
 from core.service.models import CheckerDetail, VerificationDetail
 
 logging.config.fileConfig('batch/logging.conf', disable_existing_loggers=False)
@@ -35,37 +35,21 @@ def verify_actions(db: Session):
             discord.send_message("활동 검증에 사용할 checker 계정이 등록되어 있지 않습니다.")
             sys.exit(1)
         
-        # 2. checker 계정으로 로그인 시도
-        L = None
-        successful_checker = None
+        # 2. 모든 checker 계정 로그인 시도
+        logged_in_checkers = []
         for checker in checkers:
-            if not checker.session:
-                logger.warning(f"'{checker.username}' checker에 세션이 없습니다. 건너뜁니다.")
-                continue
-            try:
-                L = instagramloader_login_service.login_with_session(checker.username, checker.session)
-                if L:
-                    logger.info(f"'{checker.username}' 계정으로 로그인 성공.")
-                    successful_checker = checker
-                    break
-            except Exception as e:
-                logger.error(f"'{checker.username}' 계정으로 로그인 중 오류 발생: {e}")
-                continue
+            with read_only_transaction_scope(db):
+                session_string = instagramloader_session_service.get_session_string(db, checker.username)
+                if not session_string:
+                    raise Exception(f"'{checker.username}'의 세션 정보를 찾을 수 없습니다.")
+                L = instagramloader_login_service.login_with_session(checker.username, session_string)
+                logger.info(f"'{checker.username}' 계정으로 로그인 성공.")
+                logged_in_checkers.append({'loader': L, 'username': checker.username})
         
-        if not L:
+        if not logged_in_checkers:
             logger.error("모든 checker 계정으로 로그인에 실패했습니다.")
             discord.send_message("활동 검증 checker 계정 로그인 실패.")
             sys.exit(1)
-
-        # 로그인 성공 시 세션 갱신
-        try:
-            with transaction_scope(db):
-                session_data = L.context.get_session()
-                session_str = json.dumps(session_data)
-                checkers_service.update_checker_session(db, successful_checker.username, session_str)
-        except Exception as e:
-            logger.error(f"'{successful_checker.username}' 세션 갱신 중 오류 발생: {e}")
-            discord.send_message(f"경고: '{successful_checker.username}' 체커 세션 갱신 실패. 다음 실행 시 문제가 발생할 수 있습니다.")
 
         # 3. 모든 user_action_verification 조회 후 링크별로 그룹화
         verifications: list[VerificationDetail] = verification_service.get_verifications_service(db)
@@ -79,31 +63,50 @@ def verify_actions(db: Session):
 
         logger.info(f"총 {len(verifications)}개의 활동을 {len(grouped_verifications)}개의 링크에 대해 검증합니다.")
 
-        # 4. 링크별로 활동 검증
+        # 4. 링크별로 활동 검증 (예외 발생 시 다른 checker로 재시도)
         for link, user_verifications in grouped_verifications.items():
-            try:
-                logger.info(f"'{link}' 링크에 대한 {len(user_verifications)}개의 활동을 검증합니다.")
-                with transaction_scope(db):
-                    shortcode = get_shortcode_from_link(link)
-                    post = Post.from_shortcode(L.context, shortcode)
-
-                    likers = {like.username for like in post.get_likes()}
-                    sleep_to_log()
-                    commenters = {comment.owner.username for comment in post.get_comments()}
-                    sleep_to_log(60)
-
-                    for verification in user_verifications:
-                        if verification.username in likers and verification.username in commenters:
-                            logger.info(f"'{verification.username}'의 좋아요 및 댓글을 확인했습니다. 인증 정보를 삭제합니다.")
-                            verification_service.delete_verification(db, verification.id)
-                        else:
-                            logger.warning(f"'{verification.username}'의 활동을 찾지 못했습니다. (좋아요: {verification.username in likers}, 댓글: {verification.username in commenters})")
+            link_processed = False
+            last_exception = None
             
-            except Exception as e:
-                logger.error(f"'{link}' 링크 처리 중 오류 발생: {e}")
-                discord.send_message(str(e))
+            shortcode = get_shortcode_from_link(link)
+            if not shortcode:
+                raise ValueError(f"'{link}'에서 shortcode를 추출할 수 없습니다.")
+            for checker_info in logged_in_checkers:
+                L = checker_info['loader']
+                checker_username = checker_info['username']
+                
+                try:
+                    logger.info(f"'{checker_username}' 계정으로 '{link}' 링크에 대한 {len(user_verifications)}개의 활동을 검증합니다.")
+                    with transaction_scope(db):
 
-        # 5. 검증 결과 요약
+                        post = Post.from_shortcode(L.context, shortcode)
+
+                        likers = {like.username for like in post.get_likes()}
+                        sleep_to_log()
+                        commenters = {comment.owner.username for comment in post.get_comments()}
+                        sleep_to_log(60)
+
+                        for verification in user_verifications:
+                            if verification.username in likers and verification.username in commenters:
+                                logger.info(f"'{verification.username}'의 좋아요 및 댓글을 확인했습니다. 인증 정보를 삭제합니다.")
+                                verification_service.delete_verification(db, verification.id)
+                            else:
+                                logger.warning(f"'{verification.username}'의 활동을 찾지 못했습니다. (좋아요: {verification.username in likers}, 댓글: {verification.username in commenters})")
+                    
+                    link_processed = True
+                    break
+
+                except Exception as e:
+                    last_exception = e
+                    logger.warning(f"'{checker_username}' 계정으로 '{link}' 링크 처리 중 오류 발생: {e}. 다른 checker로 재시도합니다.")
+                    continue
+            
+            if not link_processed:
+                error_message = f"'{link}' 링크 처리 중 모든 checker 계정으로 시도했으나 실패했습니다. 최종 오류: {last_exception}"
+                logger.error(error_message)
+                discord.send_message(error_message)
+                break
+
         summary = "카카오톡 활동 검증 배치 완료"
         logger.info(summary)
         discord.send_message(summary)

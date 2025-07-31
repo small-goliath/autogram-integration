@@ -1,3 +1,4 @@
+import instaloader
 from sqlalchemy.orm import Session
 from core.entities import Checker
 
@@ -16,8 +17,8 @@ def load(db: Session) -> list[Checker]:
 def get(db: Session, username: str) -> Checker | None:
     return db.query(Checker).filter(Checker.username == username).first()
 
-def save(db: Session, username: str, session: str) -> Checker:
-    new_checker = Checker(username=username, session=session)
+def save(db: Session, username: str, L_context: instaloader.InstaloaderContext) -> Checker:
+    new_checker = Checker(username=username, session=L_context)
     db.add(new_checker)
     db.commit()
     db.refresh(new_checker)

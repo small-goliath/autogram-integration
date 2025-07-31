@@ -32,7 +32,7 @@ def main(db: Session):
     logger.info("카카오톡 채팅방 대화내용으로부터 일괄 댓글 및 좋아요 배치를 시작합니다.")
     
     PRODUCER_USERNAME = "doto.ri_"
-    CHECKER_USERNAME = "_doto.ri_"
+    CHECKER_USERNAME = "muscle.er"
     COMMENT_API_URL = "http://124.58.209.123:18002/api/comments/query"
 
     try:

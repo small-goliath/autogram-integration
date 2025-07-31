@@ -1,12 +1,17 @@
-import logging
 import base64
+import logging
+import json
+import os
 import pickle
 import re
 import instaloader
+from dotenv import load_dotenv
 from sqlalchemy.orm import Session
 from core.Instagram import InstagramLoader
-from core.exceptions import Instagram2FAError, InstagramLoginError
+from core.exceptions import Instagram2FAError, InstagramLoginError, LoginError
 from core.service import instagramloader_session_service
+
+load_dotenv()
 
 logger = logging.getLogger(__name__)
 
@@ -61,11 +66,16 @@ def login_2fa(db: Session, username: str, verification_code: str) -> None:
         
         del active_loaders[username]
 
-    except Exception as e:
+    except LoginError as e:
         logger.error(f"{username}의 2FA 완료 실패: {e}", exc_info=True)
         if username in active_loaders:
             del active_loaders[username]
         raise InstagramLoginError("잘못된 2FA 코드입니다.") from e
+    except Exception as e:
+        logger.error(f"{username}의 로그인 실패: {e}", exc_info=True)
+        if username in active_loaders:
+            del active_loaders[username]
+        raise LoginError("로그인할 수 없습니다.") from e
 
 def login_with_session(username: str, session: str) -> instaloader.Instaloader:
     """
@@ -74,11 +84,57 @@ def login_with_session(username: str, session: str) -> instaloader.Instaloader:
     """
     logger.info(f"{username} 세션으로 로그인을 시도합니다.")
     try:
-        L = instaloader.Instaloader()
+        L = instaloader.Instaloader(download_pictures=False,
+                                    download_videos=False,
+                                    download_video_thumbnails=False,
+                                    download_geotags=False,
+                                    save_metadata=False,
+                                    compress_json=False)
         unpickled_context = pickle.loads(base64.b64decode(session))
         L.context = unpickled_context
+        
+        if L.test_login() != username:
+            raise InstagramLoginError("세션이 유효하지 않습니다.")
+        
         logger.info(f"{username} 세션으로 로그인 성공.")
         return L
     except Exception as e:
         logger.error(f"{username} 세션으로 로그인 실패: {e}", exc_info=True)
         raise InstagramLoginError("세션으로 로그인하지 못했습니다. 세션이 만료되었거나 유효하지 않을 수 있습니다.") from e
+
+def login_with_session_file(username: str) -> instaloader.Instaloader:
+    """
+    세션 파일을 사용하여 인스타그램에 로그인합니다.
+    성공하면 Instaloader 인스턴스를 반환합니다.
+    """
+    logger.info(f"{username} 세션 파일로 로그인을 시도합니다.")
+    try:
+        L = instaloader.Instaloader(download_pictures=False,
+                                    download_videos=False,
+                                    download_video_thumbnails=False,
+                                    download_geotags=False,
+                                    save_metadata=False,
+                                    compress_json=False,
+                                    max_connection_attempts=1)
+        
+        session_dir = os.getenv("INSTALOADER_SESSION_DIR")
+        if not session_dir:
+            raise EnvironmentError("INSTALOADER_SESSION_DIR 환경 변수가 설정되지 않았습니다.")
+            
+        session_filename = f"{session_dir}/session-{username}"
+
+        L.load_session_from_file(username, session_filename)
+        L.save_session_to_file()
+
+        if L.test_login() != username:
+            raise InstagramLoginError("세션이 유효하지 않습니다.")
+        
+        logger.info(f"{username} 세션 파일로 로그인 성공.")
+        return L
+    except FileNotFoundError:
+        logger.error(f"세션 파일을 찾을 수 없습니다: {session_filename}")
+        raise InstagramLoginError(f"세션 파일을 찾을 수 없습니다: {session_filename}")
+    except Exception as e:
+        logger.error(f"{username} 세션 파일로 로그인 실패: {e}", exc_info=True)
+        raise InstagramLoginError("세션 파일로 로그인하지 못했습니다.") from e
+

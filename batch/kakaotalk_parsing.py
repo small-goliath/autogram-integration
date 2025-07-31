@@ -7,9 +7,10 @@ import sys
 import locale
 from datetime import timedelta
 
-from batch.models import KakaoTalk
+
 from batch.notification import Discord
 from batch.util import get_today
+from core.service.models import KakaoTalk
 
 # 카카오톡 대화내용 파싱
 logging.config.fileConfig('batch/logging.conf', disable_existing_loggers=False)

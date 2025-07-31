@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 def save(db: Session, username: str, L_context: instaloader.InstaloaderContext):
     logger.info(f"{username}의 세션을 저장합니다.")
     session_data = pickle.dumps(L_context)
-    
+
     db.query(InstagramSession).filter(InstagramSession.username == username).delete()
 
     new_session = InstagramSession(username=username, session_data=session_data)
