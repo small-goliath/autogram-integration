@@ -36,15 +36,14 @@ def verify_actions(db: Session):
             sys.exit(1)
         
         # 2. 모든 checker 계정 로그인 시도
-        logged_in_checkers = []
+        logged_in_checkers: List[instaloader.Instaloader] = []
         for checker in checkers:
-            with read_only_transaction_scope(db):
-                session_string = instagramloader_session_service.get_session_string(db, checker.username)
-                if not session_string:
-                    raise Exception(f"'{checker.username}'의 세션 정보를 찾을 수 없습니다.")
-                L = instagramloader_login_service.login_with_session(checker.username, session_string)
-                logger.info(f"'{checker.username}' 계정으로 로그인 성공.")
+            try:
+                L = instagramloader_login_service.login_with_session_file(checker.username)
                 logged_in_checkers.append({'loader': L, 'username': checker.username})
+            except Exception as e:
+                logger.error(f" checker 계정 '{checker.username}'으로 로그인 실패: {e}")
+                continue
         
         if not logged_in_checkers:
             logger.error("모든 checker 계정으로 로그인에 실패했습니다.")
@@ -64,14 +63,19 @@ def verify_actions(db: Session):
         logger.info(f"총 {len(verifications)}개의 활동을 {len(grouped_verifications)}개의 링크에 대해 검증합니다.")
 
         # 4. 링크별로 활동 검증 (예외 발생 시 다른 checker로 재시도)
-        for link, user_verifications in grouped_verifications.items():
+        num_checkers = len(logged_in_checkers)
+        for i, (link, user_verifications) in enumerate(grouped_verifications.items()):
             link_processed = False
             last_exception = None
             
             shortcode = get_shortcode_from_link(link)
             if not shortcode:
-                raise ValueError(f"'{link}'에서 shortcode를 추출할 수 없습니다.")
-            for checker_info in logged_in_checkers:
+                logger.warning(f"'{link}'에서 shortcode를 추출할 수 없습니다.")
+                continue
+
+            for j in range(num_checkers):
+                checker_index = (i + j) % num_checkers
+                checker_info = logged_in_checkers[checker_index]
                 L = checker_info['loader']
                 checker_username = checker_info['username']
                 

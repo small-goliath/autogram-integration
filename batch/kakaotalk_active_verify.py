@@ -74,7 +74,9 @@ def verify_actions(db):
         saved_count = 0
 
         # 5. 좋아요 및 댓글 검증
-        for post_info in kakaotalk_posts:
+        num_checkers = len(logged_in_checkers)
+        logger.info(f"총 {len(kakaotalk_posts)}개의 게시글을 검증합니다.")
+        for i, post_info in enumerate(kakaotalk_posts):
             link_processed = False
             last_exception = None
 
@@ -83,12 +85,14 @@ def verify_actions(db):
                 logger.warning(f"링크에서 shortcode를 추출할 수 없습니다: {post_info.link}")
                 continue
 
-            for checker_info in logged_in_checkers:
+            for j in range(num_checkers):
+                checker_index = (i + j) % num_checkers
+                checker_info = logged_in_checkers[checker_index]
                 L = checker_info['loader']
                 checker_username = checker_info['username']
 
                 try:
-                    logger.info(f"{post_info.username}의 게시물 검증 중: {post_info.link}")
+                    logger.info(f"'{checker_username}'으로 {post_info.username}의 게시물 검증 중: {post_info.link}")
                     post = instaloader.Post.from_shortcode(L.context, shortcode)
 
                     likers = {like.username for like in post.get_likes()}
@@ -120,8 +124,8 @@ def verify_actions(db):
 
                 except Exception as e:
                     last_exception = e
-                    logger.error(f"게시물({shortcode}) 처리 중 오류 발생: {e}")
-                    discord.send_message(f"게시물({shortcode}) 처리 중 오류 발생: {e}")
+                    logger.error(f"'{checker_username}'으로 게시물({shortcode}) 처리 중 오류 발생: {e}")
+                    discord.send_message(f"'{checker_username}'으로 게시물({shortcode}) 처리 중 오류 발생: {e}")
                     continue
 
             if not link_processed:

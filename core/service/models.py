@@ -5,8 +5,7 @@ from pydantic import BaseModel
 class CheckerDetail(BaseModel):
     id: int
     username: str
-    session: str
-
+    
     class Config:
         from_attributes = True
 

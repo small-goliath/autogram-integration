@@ -17,8 +17,8 @@ def load(db: Session) -> list[Checker]:
 def get(db: Session, username: str) -> Checker | None:
     return db.query(Checker).filter(Checker.username == username).first()
 
-def save(db: Session, username: str, L_context: instaloader.InstaloaderContext) -> Checker:
-    new_checker = Checker(username=username, session=L_context)
+def save(db: Session, username: str) -> Checker:
+    new_checker = Checker(username=username)
     db.add(new_checker)
     db.commit()
     db.refresh(new_checker)

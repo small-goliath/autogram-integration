@@ -5,7 +5,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { AlertDialog, AlertDialogAction, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { fetchWithAdminAuth } from "@/lib/utils";
 import { FormEvent, useEffect, useState } from 'react';
 import { toast } from 'sonner';
@@ -18,13 +17,7 @@ interface CheckerAccount {
 export function InstagramCheckerManager() {
     const [checkers, setCheckers] = useState<CheckerAccount[]>([]);
     const [username, setUsername] = useState('');
-    const [password, setPassword] = useState('');
-    const [verificationCode, setVerificationCode] = useState('');
-    
     const [isLoading, setIsLoading] = useState(false);
-    const [needs2FA, setNeeds2FA] = useState(false);
-
-    const [checkpointError, setCheckpointError] = useState<{ title: string; description: string; url: string } | null>(null);
 
     const fetchCheckers = async () => {
         try {
@@ -44,84 +37,8 @@ export function InstagramCheckerManager() {
         fetchCheckers();
     }, []);
 
-    const handleLogin = async (e: FormEvent) => {
-        e.preventDefault();
-        if (!username.trim() || !password.trim()) {
-            toast.warning('아이디와 비밀번호를 모두 입력해주세요.');
-            return;
-        }
-        setIsLoading(true);
-        setNeeds2FA(false);
-        setCheckpointError(null);
-
-        try {
-            const res = await fetch('/api/sns-raise/instagram/login', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username, password }),
-            });
-            const data = await res.json();
-
-            if (!res.ok) {
-                const errorDetail = data.detail || '로그인에 실패했습니다.';
-                if (errorDetail.includes("체크포인트")) {
-                    const urlMatch = errorDetail.match(/(https?:\/\/[^\s]+)/);
-                    setCheckpointError({
-                        title: "인스타그램 보안 인증 필요",
-                        description: "계정 보호를 위해 본인 인증이 필요합니다. 아래 '인증 페이지로 이동' 버튼을 눌러 브라우저에서 인증을 완료한 후, 다시 로그인을 시도해주세요.",
-                        url: urlMatch ? urlMatch[0] : 'https://www.instagram.com'
-                    });
-                } else {
-                    throw new Error(errorDetail);
-                }
-                return; 
-            }
-            
-            if (data.two_factor_required) {
-                toast.info(data.message);
-                setNeeds2FA(true);
-            } else {
-                toast.success(data.message);
-                await registerChecker(username);
-            }
-        } catch (err) {
-            const errorMessage = err instanceof Error ? err.message : '로그인 중 오류가 발생했습니다.';
-            if (!checkpointError) {
-                toast.error(errorMessage);
-            }
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
-    const handleTwoFactorSubmit = async (e: FormEvent) => {
-        e.preventDefault();
-        if (!verificationCode.trim()) {
-            toast.warning('2FA 코드를 입력해주세요.');
-            return;
-        }
-        setIsLoading(true);
-        try {
-            const res = await fetch('/api/sns-raise/instagram/login/2fa', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username, verification_code: verificationCode }),
-            });
-            const data = await res.json();
-            if (!res.ok) {
-                throw new Error(data.detail || '2FA 로그인에 실패했습니다.');
-            }
-            toast.success(data.message);
-            await registerChecker(username);
-        } catch (err) {
-            const errorMessage = err instanceof Error ? err.message : '2FA 인증 중 오류가 발생했습니다.';
-            toast.error(errorMessage);
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
     const registerChecker = async (currentUsername: string) => {
+        setIsLoading(true);
         toast.info(`${currentUsername} 계정을 체커로 등록합니다...`);
         try {
             const response = await fetchWithAdminAuth('/api/admin/checkers', {
@@ -134,15 +51,13 @@ export function InstagramCheckerManager() {
                 throw new Error(data.detail || '체커 등록에 실패했습니다.');
             }
             toast.success(`[${currentUsername}] 체커 등록이 완료되었습니다.`);
-            // Reset form
             setUsername('');
-            setPassword('');
-            setVerificationCode('');
-            setNeeds2FA(false);
             fetchCheckers(); // Refresh list
         } catch (err) {
             const errorMessage = err instanceof Error ? err.message : '체커 등록 중 오류가 발생했습니다.';
             toast.error(errorMessage);
+        } finally {
+            setIsLoading(false);
         }
     };
 
@@ -174,92 +89,38 @@ export function InstagramCheckerManager() {
 
     const handleSubmit = (e: FormEvent) => {
         e.preventDefault();
-        if (needs2FA) {
-            handleTwoFactorSubmit(e);
-        } else {
-            handleLogin(e);
+        if (!username.trim()) {
+            toast.warning('아이디를 입력해주세요.');
+            return;
         }
+        registerChecker(username);
     }
 
     return (
         <>
-            <AlertDialog open={!!checkpointError} onOpenChange={() => setCheckpointError(null)}>
-                <AlertDialogContent>
-                    <AlertDialogHeader>
-                        <AlertDialogTitle>{checkpointError?.title}</AlertDialogTitle>
-                        <AlertDialogDescription>
-                            {checkpointError?.description}
-                        </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                        <AlertDialogAction onClick={() => setCheckpointError(null)}>닫기</AlertDialogAction>
-                        <AlertDialogAction onClick={() => {
-                            if (checkpointError?.url) {
-                                window.open(checkpointError.url, '_blank', 'noopener,noreferrer');
-                            }
-                            setCheckpointError(null);
-                        }}>
-                           인증 페이지로 이동
-                        </AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
-
             <div className="space-y-6">
                 <Card>
                     <CardHeader>
                         <CardTitle>인스타그램 체커 등록</CardTitle>
                         <CardDescription>
-                            {needs2FA 
-                                ? "2단계 인증 코드를 입력하여 로그인을 완료하세요." 
-                                : "관리 작업을 위한 새 인스타그램 계정을 로그인하여 추가합니다."
-                            }
+                            관리 작업을 위한 새 인스타그램 계정을 추가합니다.
                         </CardDescription>
                     </CardHeader>
                     <CardContent>
                         <form onSubmit={handleSubmit} className="space-y-4">
-                            {!needs2FA && (
-                                <>
-                                    <div className="space-y-2">
-                                        <Label htmlFor="username">인스타그램 사용자 이름</Label>
-                                        <Input
-                                            id="username"
-                                            value={username}
-                                            onChange={(e) => setUsername(e.target.value)}
-                                            placeholder="인스타그램 계정"
-                                            required
-                                            disabled={isLoading}
-                                        />
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label htmlFor="password">비밀번호</Label>
-                                        <Input
-                                            id="password"
-                                            type="password"
-                                            value={password}
-                                            onChange={(e) => setPassword(e.target.value)}
-                                            required
-                                            disabled={isLoading}
-                                        />
-                                    </div>
-                                </>
-                            )}
-                            
-                            {needs2FA && (
-                                <div className="space-y-2">
-                                    <Label htmlFor="2fa-code">2단계 인증 코드</Label>
-                                    <Input
-                                        id="2fa-code"
-                                        value={verificationCode}
-                                        onChange={(e) => setVerificationCode(e.target.value)}
-                                        placeholder="123456"
-                                        required
-                                        disabled={isLoading}
-                                    />
-                                </div>
-                            )}
+                            <div className="space-y-2">
+                                <Label htmlFor="username">인스타그램 사용자 이름</Label>
+                                <Input
+                                    id="username"
+                                    value={username}
+                                    onChange={(e) => setUsername(e.target.value)}
+                                    placeholder="인스타그램 계정"
+                                    required
+                                    disabled={isLoading}
+                                />
+                            </div>
                             <Button type="submit" disabled={isLoading} className="w-full">
-                                {isLoading ? '처리 중...' : (needs2FA ? '인증 및 등록' : '로그인 및 등록')}
+                                {isLoading ? '처리 중...' : '등록'}
                             </Button>
                         </form>
                     </CardContent>
