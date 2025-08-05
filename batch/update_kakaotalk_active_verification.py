@@ -100,7 +100,7 @@ def verify_actions(db: Session):
                 error_message = f"'{link}' 링크 처리 중 모든 checker 계정으로 시도했으나 실패했습니다. 최종 오류: {last_exception}"
                 logger.error(error_message)
                 discord.send_message(error_message)
-                break
+                continue
 
         summary = "카카오톡 활동 검증 배치 완료"
         logger.info(summary)
