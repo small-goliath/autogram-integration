@@ -85,13 +85,12 @@ def verify_actions(db: Session):
 
                         post = Post.from_shortcode(L.context, shortcode)
 
-                        likers = {like.username for like in post.get_likes()}
-                        sleep_to_log()
-                        commenters = {comment.owner.username for comment in post.get_comments()}
+                        # likers = {like.username for like in post.get_likes()}
                         sleep_to_log(60)
+                        commenters = {comment.owner.username for comment in post.get_comments()}
 
                         for verification in user_verifications:
-                            if verification.username in likers and verification.username in commenters:
+                            if verification.username in commenters:
                                 logger.info(f"'{verification.username}'의 좋아요 및 댓글을 확인했습니다. 인증 정보를 삭제합니다.")
                                 verification_service.delete_verification(db, verification.id)
                             else:

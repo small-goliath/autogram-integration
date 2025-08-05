@@ -1,6 +1,6 @@
 import base64
 import logging
-import json
+import browser_cookie3
 import os
 import pickle
 import re
@@ -124,6 +124,8 @@ def login_with_session_file(username: str) -> instaloader.Instaloader:
         session_filename = f"{session_dir}/session-{username}"
 
         L.load_session_from_file(username, session_filename)
+        # cookies = _get_chrome_cookies()
+        # L.context.update_cookies(cookies)
         L.save_session_to_file()
 
         if L.test_login() != username:
@@ -138,3 +140,12 @@ def login_with_session_file(username: str) -> instaloader.Instaloader:
         logger.error(f"{username} 세션 파일로 로그인 실패: {e}", exc_info=True)
         raise InstagramLoginError("세션 파일로 로그인하지 못했습니다.") from e
 
+
+def _get_chrome_cookies():
+    try:
+        cookies = browser_cookie3.chrome()
+        return cookies
+
+    except Exception as e:
+        print(f"Error: {e}")
+        return None

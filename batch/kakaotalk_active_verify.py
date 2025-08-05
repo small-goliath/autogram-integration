@@ -73,20 +73,23 @@ def verify_actions(db):
         added_verifications = set()
         saved_count = 0
 
-        # 5. 좋아요 및 댓글 검증
+        # 5. 댓글 검증
         num_checkers = len(logged_in_checkers)
-        logger.info(f"총 {len(kakaotalk_posts)}개의 게시글을 검증합니다.")
-        for i, post_info in enumerate(kakaotalk_posts):
-            link_processed = False
-            last_exception = None
+        posts_by_shortcode = {
+            get_shortcode_from_link(p.link): p
+            for p in kakaotalk_posts
+            if get_shortcode_from_link(p.link)
+        }
+        shortcodes_to_verify = list(posts_by_shortcode.keys())
 
-            shortcode = get_shortcode_from_link(post_info.link)
-            if not shortcode:
-                logger.warning(f"링크에서 shortcode를 추출할 수 없습니다: {post_info.link}")
-                continue
+        logger.info(f"총 {len(shortcodes_to_verify)}개의 게시글을 검증합니다.")
 
-            for j in range(num_checkers):
-                checker_index = (i + j) % num_checkers
+        if shortcodes_to_verify:
+            iteration_count = 0
+            for i, shortcode in enumerate(shortcodes_to_verify):
+                post_info = posts_by_shortcode[shortcode]
+
+                checker_index = (i + iteration_count) % num_checkers
                 checker_info = logged_in_checkers[checker_index]
                 L = checker_info['loader']
                 checker_username = checker_info['username']
@@ -95,19 +98,18 @@ def verify_actions(db):
                     logger.info(f"'{checker_username}'으로 {post_info.username}의 게시물 검증 중: {post_info.link}")
                     post = instaloader.Post.from_shortcode(L.context, shortcode)
 
-                    likers = {like.username for like in post.get_likes()}
-                    sleep_to_log()
-                    commenters = {comment.owner.username for comment in post.get_comments()}
+                    # likers = {like.username for like in post.get_likes()}
                     sleep_to_log(60)
+                    commenters = {comment.owner.username for comment in post.get_comments()}
 
                     for user in all_users:
                         if user.username == post.owner_username:
                             continue
 
-                        is_liked = user.username in likers
+                        # is_liked = user.username in likers
                         is_commented = user.username in commenters
 
-                        if not is_liked or not is_commented:
+                        if not is_commented:
                             verification_key = (user.username, post_info.link)
                             if verification_key not in added_verifications:
                                 v = UserActionVerification(
@@ -119,20 +121,11 @@ def verify_actions(db):
                                     saved_count += 1
                                 added_verifications.add(verification_key)
 
-                    link_processed = True
-                    break
-
                 except Exception as e:
-                    last_exception = e
                     logger.error(f"'{checker_username}'으로 게시물({shortcode}) 처리 중 오류 발생: {e}")
                     discord.send_message(f"'{checker_username}'으로 게시물({shortcode}) 처리 중 오류 발생: {e}")
-                    continue
 
-            if not link_processed:
-                error_message = f"신규 '{post_info.link}' 링크 처리 중 모든 checker 계정으로 시도했으나 실패했습니다. 최종 오류: {last_exception}"
-                logger.error(error_message)
-                discord.send_message(error_message)
-                break
+            iteration_count += 1
 
         if saved_count > 0:
             logger.info(f"총 {saved_count}개의 새로운 미완료 활동을 기록했습니다.")
