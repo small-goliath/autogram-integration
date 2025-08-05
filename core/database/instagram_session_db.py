@@ -1,15 +1,13 @@
 import logging
-import pickle
-import instaloader
+import json
 from sqlalchemy.orm import Session
-
 from core.entities import InstagramSession
 
 logger = logging.getLogger(__name__)
 
-def save(db: Session, username: str, L_context: instaloader.InstaloaderContext):
+def save(db: Session, username: str, settings: dict):
     logger.info(f"{username}의 세션을 저장합니다.")
-    session_data = pickle.dumps(L_context)
+    session_data = json.dumps(settings).encode('utf-8')
 
     db.query(InstagramSession).filter(InstagramSession.username == username).delete()
 

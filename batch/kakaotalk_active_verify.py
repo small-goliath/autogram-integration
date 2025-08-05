@@ -4,7 +4,7 @@ import re
 import sys
 from typing import List
 
-import instaloader
+from instagrapi import Client
 from dotenv import load_dotenv
 
 from batch.kakaotalk_parsing import parsing
@@ -12,7 +12,7 @@ from batch.notification import Discord
 from batch.util import sleep_to_log
 from core.db_transaction import with_session
 from core.entities import UserActionVerification
-from core.service import (checkers_service, instagramloader_login_service, users_service, verification_service)
+from core.service import (checkers_service, instagram_login_service, users_service, verification_service)
 from core.service.models import CheckerDetail, KakaoTalk, UserDetail
 
 load_dotenv()
@@ -50,11 +50,11 @@ def verify_actions(db):
             sys.exit(1)
 
         # 3. checker 계정으로 로그인 시도
-        logged_in_checkers: List[instaloader.Instaloader] = []
+        logged_in_checkers: List[dict[str, Client | str]] = []
         for checker in checkers:
             try:
-                L = instagramloader_login_service.login_with_session_file(checker.username)
-                logged_in_checkers.append({'loader': L, 'username': checker.username})
+                cl = instagram_login_service.login_with_session(checker.username, checker.session)
+                logged_in_checkers.append({'client': cl, 'username': checker.username})
             except Exception as e:
                 logger.error(f" checker 계정 '{checker.username}'으로 로그인 실패: {e}")
                 continue
@@ -84,29 +84,35 @@ def verify_actions(db):
 
         logger.info(f"총 {len(shortcodes_to_verify)}개의 게시글을 검증합니다.")
 
-        if shortcodes_to_verify:
-            iteration_count = 0
+        iteration_count = 0
+        while shortcodes_to_verify:
+            if iteration_count > 0:
+                logger.info(f"실패한 {len(shortcodes_to_verify)}개의 게시글을 재검증합니다. 60초 후 시작합니다.")
+                sleep_to_log(60)
+                
+            failed_shortcodes = []
             for i, shortcode in enumerate(shortcodes_to_verify):
                 post_info = posts_by_shortcode[shortcode]
 
                 checker_index = (i + iteration_count) % num_checkers
                 checker_info = logged_in_checkers[checker_index]
-                L = checker_info['loader']
+                cl = checker_info['client']
                 checker_username = checker_info['username']
 
                 try:
-                    logger.info(f"'{checker_username}'으로 {post_info.username}의 게시물 검증 중: {post_info.link}")
-                    post = instaloader.Post.from_shortcode(L.context, shortcode)
-
-                    # likers = {like.username for like in post.get_likes()}
-                    sleep_to_log(60)
-                    commenters = {comment.owner.username for comment in post.get_comments()}
+                    log_prefix = "재" if iteration_count > 0 else ""
+                    logger.info(f"'{checker_username}'으로 {post_info.username}의 게시물 {log_prefix}검증 중: {post_info.link}")
+                    media_pk = cl.media_pk_from_code(shortcode)
+                    media_info = cl.media_info(media_pk)
+                    
+                    sleep_to_log()
+                    comments = cl.media_comments(media_pk)
+                    commenters = {comment.user.username for comment in comments}
 
                     for user in all_users:
-                        if user.username == post.owner_username:
+                        if user.username == media_info.user.username:
                             continue
 
-                        # is_liked = user.username in likers
                         is_commented = user.username in commenters
 
                         if not is_commented:
@@ -122,9 +128,11 @@ def verify_actions(db):
                                 added_verifications.add(verification_key)
 
                 except Exception as e:
-                    logger.error(f"'{checker_username}'으로 게시물({shortcode}) 처리 중 오류 발생: {e}")
-                    discord.send_message(f"'{checker_username}'으로 게시물({shortcode}) 처리 중 오류 발생: {e}")
+                    log_prefix = "재" if iteration_count > 0 else ""
+                    logger.error(f"'{checker_username}'으로 게시물({shortcode}) {log_prefix}처리 중 오류 발생: {e}")
+                    discord.send_message(f"'{checker_username}'으로 게시물({shortcode}) {log_prefix}처리 중 오류 발생: {e}")
 
+            shortcodes_to_verify = failed_shortcodes
             iteration_count += 1
 
         if saved_count > 0:
@@ -143,4 +151,3 @@ def verify_actions(db):
 
 if __name__ == "__main__":
     verify_actions()
-

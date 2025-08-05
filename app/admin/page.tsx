@@ -107,15 +107,9 @@ export default function AdminPage() {
 
   return (
     <div>
-      <div className="flex justify-end mb-4">
-        <button
-          onClick={handleLogout}
-          className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700"
-        >
-          로그아웃
-        </button>
+      <div className="space-y-8">
+        <AdminDashboard />
       </div>
-      <AdminDashboard />
     </div>
   );
 }

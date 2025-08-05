@@ -26,7 +26,6 @@ def save_verification(session: Session, verification: UserActionVerification) ->
 
 def delete_verification(db: Session, verification_id: int) -> bool:
     """인증 정보를 삭제합니다."""
-    logger.info(f"{verification_id}번 인증 삭제 요청")
     try:
         result = verification_db.delete_verification_by_id(db, verification_id)
         if result:

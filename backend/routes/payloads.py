@@ -39,6 +39,7 @@ class CreateCheckerRequest(BaseModel):
 
 class RegisterCheckerRequest(BaseModel):
     username: str
+    password: str
 
 class CheckerDetailResponse(BaseModel):
     id: int

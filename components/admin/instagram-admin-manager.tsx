@@ -14,10 +14,19 @@ interface CheckerAccount {
     username: string;
 }
 
+interface LoginResponse {
+    message: string;
+    two_factor_required?: boolean;
+    detail?: string;
+}
+
 export function InstagramCheckerManager() {
     const [checkers, setCheckers] = useState<CheckerAccount[]>([]);
     const [username, setUsername] = useState('');
+    const [password, setPassword] = useState('');
     const [isLoading, setIsLoading] = useState(false);
+    const [twoFactorRequired, setTwoFactorRequired] = useState(false);
+    const [verificationCode, setVerificationCode] = useState('');
 
     const fetchCheckers = async () => {
         try {
@@ -37,24 +46,68 @@ export function InstagramCheckerManager() {
         fetchCheckers();
     }, []);
 
-    const registerChecker = async (currentUsername: string) => {
+    const handleLogin = async (e: FormEvent) => {
+        e.preventDefault();
+        if (!username.trim() || !password.trim()) {
+            toast.warning('아이디와 비밀번호를 모두 입력해주세요.');
+            return;
+        }
         setIsLoading(true);
-        toast.info(`${currentUsername} 계정을 체커로 등록합니다...`);
+        toast.info(`${username} 계정을 체커로 등록 및 로그인합니다...`);
         try {
-            const response = await fetchWithAdminAuth('/api/admin/checkers', {
+            const response = await fetchWithAdminAuth('/api/admin/checkers/login', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username: currentUsername }),
+                body: JSON.stringify({ username, password }),
             });
-            const data = await response.json();
+            const data: LoginResponse = await response.json();
             if (!response.ok) {
                 throw new Error(data.detail || '체커 등록에 실패했습니다.');
             }
-            toast.success(`[${currentUsername}] 체커 등록이 완료되었습니다.`);
-            setUsername('');
-            fetchCheckers(); // Refresh list
+
+            if (data.two_factor_required) {
+                toast.info(data.message);
+                setTwoFactorRequired(true);
+            } else {
+                toast.success(data.message);
+                setUsername('');
+                setPassword('');
+                fetchCheckers();
+            }
         } catch (err) {
             const errorMessage = err instanceof Error ? err.message : '체커 등록 중 오류가 발생했습니다.';
+            toast.error(errorMessage);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleTwoFactorSubmit = async (e: FormEvent) => {
+        e.preventDefault();
+        if (!verificationCode.trim()) {
+            toast.warning('2FA 코드를 입력해주세요.');
+            return;
+        }
+        setIsLoading(true);
+        toast.info(`[${username}] 2단계 인증을 시도합니다...`);
+        try {
+            const response = await fetchWithAdminAuth('/api/admin/checkers/login/2fa', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, verification_code: verificationCode }),
+            });
+            const data = await response.json();
+            if (!response.ok) {
+                throw new Error(data.detail || '2FA 로그인에 실패했습니다.');
+            }
+            toast.success(data.message);
+            setTwoFactorRequired(false);
+            setUsername('');
+            setPassword('');
+            setVerificationCode('');
+            fetchCheckers();
+        } catch (err) {
+            const errorMessage = err instanceof Error ? err.message : '2FA 인증 중 오류가 발생했습니다.';
             toast.error(errorMessage);
         } finally {
             setIsLoading(false);
@@ -87,15 +140,6 @@ export function InstagramCheckerManager() {
         }
     };
 
-    const handleSubmit = (e: FormEvent) => {
-        e.preventDefault();
-        if (!username.trim()) {
-            toast.warning('아이디를 입력해주세요.');
-            return;
-        }
-        registerChecker(username);
-    }
-
     return (
         <>
             <div className="space-y-6">
@@ -107,22 +151,58 @@ export function InstagramCheckerManager() {
                         </CardDescription>
                     </CardHeader>
                     <CardContent>
-                        <form onSubmit={handleSubmit} className="space-y-4">
-                            <div className="space-y-2">
-                                <Label htmlFor="username">인스타그램 사용자 이름</Label>
-                                <Input
-                                    id="username"
-                                    value={username}
-                                    onChange={(e) => setUsername(e.target.value)}
-                                    placeholder="인스타그램 계정"
-                                    required
-                                    disabled={isLoading}
-                                />
-                            </div>
-                            <Button type="submit" disabled={isLoading} className="w-full">
-                                {isLoading ? '처리 중...' : '등록'}
-                            </Button>
-                        </form>
+                        {!twoFactorRequired ? (
+                            <form onSubmit={handleLogin} className="space-y-4">
+                                <div className="space-y-2">
+                                    <Label htmlFor="username">인스타그램 사용자 이름</Label>
+                                    <Input
+                                        id="username"
+                                        value={username}
+                                        onChange={(e) => setUsername(e.target.value)}
+                                        placeholder="인스타그램 계정"
+                                        required
+                                        disabled={isLoading}
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="password">비밀번호</Label>
+                                    <Input
+                                        id="password"
+                                        type="password"
+                                        value={password}
+                                        onChange={(e) => setPassword(e.target.value)}
+                                        placeholder="인스타그램 비밀번호"
+                                        required
+                                        disabled={isLoading}
+                                    />
+                                </div>
+                                <Button type="submit" disabled={isLoading} className="w-full">
+                                    {isLoading ? '처리 중...' : '등록'}
+                                </Button>
+                            </form>
+                        ) : (
+                            <form onSubmit={handleTwoFactorSubmit} className="space-y-4">
+                                <h3 className="text-lg font-semibold">2단계 인증(2FA)</h3>
+                                <p className="text-sm text-muted-foreground">
+                                    인증 앱(또는 SMS)에서 생성된 6자리 코드를 입력해주세요.
+                                </p>
+                                <div className="space-y-2">
+                                    <Label htmlFor="verificationCode">인증 코드</Label>
+                                    <Input
+                                        id="verificationCode"
+                                        value={verificationCode}
+                                        onChange={(e) => setVerificationCode(e.target.value)}
+                                        placeholder="인증 코드 6자리"
+                                        maxLength={6}
+                                        required
+                                        disabled={isLoading}
+                                    />
+                                </div>
+                                <Button type="submit" disabled={isLoading} className="w-full">
+                                    {isLoading ? '인증 중...' : '인증 및 등록'}
+                                </Button>
+                            </form>
+                        )}
                     </CardContent>
                 </Card>
 

@@ -1,21 +1,30 @@
 import logging
 import logging.config
+import os
 import random
 import re
+import sys
 import time
+from typing import List
 import requests
-from instaloader import Post
 from sqlalchemy.orm import Session
+from instagrapi import Client
+from batch.util import sleep_to_log
 from core.db_transaction import read_only_transaction_scope, with_session
 from core.service import (
+    checkers_service,
     producers_service, 
     producer_instagram_service, 
-    instagramloader_session_service,
-    instagramloader_login_service
+    instagram_session_service,
+    instagram_login_service
 )
 from batch import kakaotalk_parsing
 from batch.notification import Discord
+from dotenv import load_dotenv
 
+from core.service.models import CheckerDetail, ProducerDetail
+
+load_dotenv()
 logging.config.fileConfig('batch/logging.conf', disable_existing_loggers=False)
 logger = logging.getLogger(__name__)
 
@@ -30,29 +39,58 @@ def main(db: Session):
     카카오톡 채팅방 대화내용으로부터 일괄 댓글 및 좋아요를 수행합니다.
     """
     logger.info("카카오톡 채팅방 대화내용으로부터 일괄 댓글 및 좋아요 배치를 시작합니다.")
-    
-    PRODUCER_USERNAME = "doto.ri_"
+    discord = Discord()
+
     CHECKER_USERNAME = "muscle.er"
-    COMMENT_API_URL = "http://124.58.209.123:18002/api/comments/query"
+    COMMENT_API_URL = os.getenv("COMMENT_API_URL")
 
     try:
-        # 1. producer, checker 로그인
         with read_only_transaction_scope(db):
-            logger.info(f"'{PRODUCER_USERNAME}' 계정으로 로그인을 시도합니다.")
-            producer = producers_service.get_producer(db, PRODUCER_USERNAME)
-            if not producer or not producer.session:
-                raise Exception(f"'{PRODUCER_USERNAME}'의 세션 정보를 찾을 수 없습니다.")
-            cl = producer_instagram_service.login_with_session_producer(producer.username, producer.session)
-            logger.info(f"'{PRODUCER_USERNAME}' 계정으로 로그인 성공.")
+            # producer 계정 정보 조회
+            producers: List[ProducerDetail] = producers_service.get_producers()
+            if not producers:
+                logger.error("producer 계정이 등록되어 있지 않습니다.")
+                discord.send_message("producer 계정이 등록되어 있지 않습니다.")
+                sys.exit(1)
+            
+            # producer 계정으로 로그인 시도
+            logged_in_producers: List[dict[str, Client | str]] = []
+            for producer in producers:
+                try:
+                    producer_cl = producer_instagram_service.login_with_session_producer(producer.username, producer.session)
+                    logged_in_producers.append({'client': producer_cl, 'username': producer.username})
+                except Exception as e:
+                    logger.error(f" checker 계정 '{checker.username}'으로 로그인 실패: {e}")
+                    continue
+            
+            if not logged_in_producers:
+                logger.error("모든 producer 계정으로 로그인에 실패했습니다.")
+                discord.send_message("활동 검증 producer 계정 로그인 실패.")
+                sys.exit(1)
 
-            logger.info(f"'{CHECKER_USERNAME}' 계정으로 로그인을 시도합니다.")
-            session_string = instagramloader_session_service.get_session_string(db, CHECKER_USERNAME)
-            if not session_string:
-                raise Exception(f"'{CHECKER_USERNAME}'의 세션 정보를 찾을 수 없습니다.")
-            L = instagramloader_login_service.login_with_session(CHECKER_USERNAME, session_string)
-            logger.info(f"'{CHECKER_USERNAME}' 계정으로 로그인 성공.")
+            # checker 계정 정보 조회
+            checkers: List[CheckerDetail] = checkers_service.get_checkers(db)
+            if not checkers:
+                logger.error("활동 검증에 사용할 checker 계정이 등록되어 있지 않습니다.")
+                discord.send_message("활동 검증에 사용할 checker 계정이 등록되어 있지 않습니다.")
+                sys.exit(1)
 
-        # 2. batch.kakaotalk_parsing의 parsing() 함수로부터 좋아요 및 댓글 대상 조회
+            # checker 계정으로 로그인 시도
+            logged_in_checkers: List[dict[str, Client | str]] = []
+            for checker in checkers:
+                try:
+                    cl = instagram_login_service.login_with_session(checker.username, checker.session)
+                    logged_in_checkers.append({'client': cl, 'username': checker.username})
+                except Exception as e:
+                    logger.error(f" checker 계정 '{checker.username}'으로 로그인 실패: {e}")
+                    continue
+            
+            if not logged_in_checkers:
+                logger.error("모든 checker 계정으로 로그인에 실패했습니다.")
+                discord.send_message("활동 검증 checker 계정 로그인 실패.")
+                sys.exit(1)
+
+        # 카카오톡 대화 내용으로부터 댓글 대상 조회
         logger.info("카카오톡 대화 내용 파싱을 시작합니다.")
         targets = kakaotalk_parsing.parsing()
         if not targets:
@@ -61,7 +99,8 @@ def main(db: Session):
         
         logger.info(f"총 {len(targets)}개의 대상을 처리합니다.")
 
-        for target in targets:
+        num_checkers = len(logged_in_checkers)
+        for i, target in enumerate(targets):
             try:
                 shortcode = get_shortcode_from_link(target.link)
                 if not shortcode:
@@ -69,15 +108,38 @@ def main(db: Session):
                     continue
 
                 logger.info(f"게시물 처리 중: {target.link}")
-                
-                # 3. media_id 조회
-                media_id = producer_instagram_service.media_id(cl, shortcode)
 
-                # 4. 댓글 생성 API 호출
-                post = Post.from_shortcode(L.context, shortcode)
-                if post.caption:
+                # Checker를 번갈아가며 media_info 조회
+                media_info = None
+                media_pk = None
+                last_exception = None
+                for j in range(num_checkers):
+                    checker_index = (i + j) % num_checkers
+                    checker_info = logged_in_checkers[checker_index]
+                    cl = checker_info['client']
+                    checker_username = checker_info['username']
+                    try:
+                        logger.info(f"'{checker_username}' 계정으로 media_info 조회 시도: {target.link}")
+                        media_pk = cl.media_pk_from_code(shortcode)
+                        media_info = cl.media_info(media_pk)
+                        logger.info(f"'{checker_username}' 계정으로 media_info 조회 성공.")
+                        break
+                    except Exception as e:
+                        last_exception = e
+                        logger.warning(f"'{checker_username}' 계정으로 media_info 조회 실패: {e}. 다른 checker로 재시도합니다.")
+                        sleep_to_log(10)
+                        continue
+                
+                if not media_info:
+                    error_message = f"'{target.link}' 링크 처리 중 모든 checker 계정으로 시도했으나 media_info 조회에 실패했습니다. 최종 오류: {last_exception}"
+                    logger.error(error_message)
+                    discord.send_message(error_message)
+                    continue
+
+                # 댓글 생성 API 호출
+                if media_info.caption_text:
                     logger.info("댓글 생성 API를 호출합니다.")
-                    caption = str(post.caption).replace("\n", " ")
+                    caption = str(media_info.caption_text).replace("\n", " ")
                     response = requests.post(COMMENT_API_URL, json={'text': caption}, timeout=30)
                     response.raise_for_status()
                     comment_text = response.json().get("answer")
@@ -88,24 +150,29 @@ def main(db: Session):
                     logger.error("댓글 생성에 실패했거나 유효하지 않은 응답입니다.")
                     continue
 
-                # 5. 좋아요 및 댓글 수행
-                logger.info(f"게시물 {shortcode}에 좋아요 및 댓글을 작성합니다.")
-                producer_instagram_service.like(cl, media_id)
-                time.sleep(random.uniform(3, 7)) # 좋아요와 댓글 사이의 간격
-                producer_instagram_service.comment(cl, media_id, comment_text)
-
-                # 인스타그램의 제한을 피하기 위해 랜덤 딜레이 추가
-                sleep_time = random.uniform(10, 20)
-                logger.info(f"{sleep_time:.2f}초 대기합니다.")
-                time.sleep(sleep_time)
-
+                # 모든 producer가 좋아요 및 댓글 수행
+                logger.info(f"게시물 {shortcode}에 모든 producer가 좋아요 및 댓글을 작성합니다.")
+                for producer_info in logged_in_producers:
+                    producer_cl = producer_info['client']
+                    producer_username = producer_info['username']
+                    try:
+                        logger.info(f"'{producer_username}' 계정으로 좋아요 및 댓글 작성 시도.")
+                        producer_cl.media_like(media_pk)
+                        sleep_to_log(30)
+                        producer_cl.media_comment(media_pk, comment_text)
+                        logger.info(f"'{producer_username}' 계정으로 좋아요 및 댓글 작성 완료.")
+                        sleep_to_log(60)
+                    except Exception as e:
+                        logger.error(f"'{producer_username}' 계정으로 게시물 처리 중 오류 발생 ({target.link}): {e}", exc_info=True)
+                        continue
+            
             except Exception as e:
                 logger.error(f"게시물 처리 중 오류 발생 ({target.link}): {e}", exc_info=True)
-                continue # 다음 대상으로 넘어감
+                continue
 
     except Exception as e:
         logger.critical(f"배치 실행 중 심각한 오류 발생: {e}", exc_info=True)
-        Discord().send_message(message=f"카카오톡 활성화 배치 실패: {e}")
+        discord.send_message(message=f"카카오톡 활성화 배치 실패: {e}")
 
     logger.info("카카오톡 채팅방 대화내용으로부터 일괄 댓글 및 좋아요 배치를 종료합니다.")
 

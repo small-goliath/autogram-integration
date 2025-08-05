@@ -1,17 +1,20 @@
 import logging
-import base64
-import logging
-import pickle
-from instaloader import BadCredentialsException, ConnectionException, TwoFactorAuthRequiredException, instaloader
-
-
+import json
+from instagrapi import Client
+from instagrapi.exceptions import (
+    BadPassword,
+    TwoFactorRequired,
+    LoginRequired,
+    ChallengeRequired,
+    RateLimitError
+)
 from core.exceptions import Instagram2FAError, InstagramError, LoginError
 
 logger = logging.getLogger(__name__)
 
-class InstagramLoader:
+class InstagramClient:
     def __init__(self, username: str, password: str, verification_code: str = None):
-        self.L = instaloader.Instaloader()
+        self.cl = Client()
         self.username = username
         self.password = password
         self.verification_code = verification_code
@@ -19,24 +22,27 @@ class InstagramLoader:
     def login(self):
         logger.info(f"[{self.username}] 인스타그램 로그인 시도")
         try:
-            self.L.login(self.username, self.password)
-        except TwoFactorAuthRequiredException:
-            if not self.verification_code:
-                raise Instagram2FAError(f"2단계 인증이 필요합니다.")
-            try:
-                self.L.two_factor_login(self.verification_code)
-            except BadCredentialsException as e:
-                raise LoginError("잘못된 2FA 코드입니다.")  from e
-            except ConnectionException as e:
-                raise InstagramError(f"2FA 중 연결 오류: {e}") from e
-        except BadCredentialsException as e:
+            self.cl.login(self.username, self.password, verification_code=self.verification_code if self.verification_code else "")
+        except TwoFactorRequired as e:
+            raise Instagram2FAError("2단계 인증이 필요합니다.") from e
+        except BadPassword as e:
             raise LoginError("잘못된 사용자 이름 또는 비밀번호입니다.") from e
-        except ConnectionException as e:
-            raise InstagramError(f"로그인 중 연결 오류: {e}") from e
-        
+        except LoginRequired as e:
+            raise LoginError("로그인이 필요합니다.") from e
+        except ChallengeRequired as e:
+            raise InstagramError(f"챌린지가 필요합니다: {e}") from e
+        except RateLimitError as e:
+            raise InstagramError(f"속도 제한에 도달했습니다: {e}") from e
+        except Exception as e:
+            raise InstagramError(f"알 수 없는 로그인 오류: {e}") from e
+
     def get_session(self) -> str:
-        return self.context_to_string(self.L.context)
+        return self.cl.sessionid
     
     @staticmethod
-    def context_to_string(context: instaloader.InstaloaderContext) -> str:
-        return base64.b64encode(pickle.dumps(context)).decode('utf-8')
+    def settings_to_string(settings: dict) -> str:
+        return json.dumps(settings)
+
+    @staticmethod
+    def string_to_settings(settings_str: str) -> dict:
+        return json.loads(settings_str)
