@@ -81,39 +81,26 @@ def login_with_session(username: str, session: str) -> Client:
         settings = json.loads(session)
         cl.set_settings(settings)
         cl.login_by_sessionid(cl.sessionid)
-        
-        user_info = cl.user_info_by_username(username)
-        if str(user_info.pk) != str(cl.user_id):
-             raise InstagramLoginError("세션이 유효하지 않습니다.")
+        cl.country = "KR"
+        cl.timezone_offset = 32400
+        cl.locale = "ko_KR"
+        cl.country_code = 82
+        # cl.user_agent = "Instagram 76.0.0.15.395 (iPhone15,2; iOS 10_0_2; ko_KR; ko-KR; scale=2.61; 1080x1920) AppleWebKit/420+"
+        # cl.device_settings = {
+        #     "app_version": "269.0.0.18.75",
+        #     "android_version": 26,
+        #     "android_release": "8.0.0",
+        #     "dpi": "480dpi",
+        #     "resolution": "1080x1920",
+        #     "manufacturer": "iPhone 15 Pro",
+        #     "device": "devitron",
+        #     "model": "iPhone 15 Pro",
+        #     "cpu": "qcom",
+        #     "version_code": "314665256",
+        # }
 
         logger.info(f"{username} 세션으로 로그인 성공.")
         return cl
     except Exception as e:
         logger.error(f"{username} 세션으로 로그인 실패: {e}", exc_info=True)
         raise InstagramLoginError("세션으로 로그인하지 못했습니다. 세션이 만료되었거나 유효하지 않을 수 있습니다.") from e
-
-def login_with_session_file(username: str) -> Client:
-    logger.info(f"{username} 세션 파일로 로그인을 시도합니다.")
-    session_dir = os.getenv("INSTAGRAM_SESSION_DIR")
-    if not session_dir:
-        raise EnvironmentError("INSTAGRAM_SESSION_DIR 환경 변수가 설정되지 않았습니다.")
-    
-    session_filename = f"{session_dir}/{username}.json"
-
-    try:
-        cl = Client()
-        cl.load_settings(session_filename)
-        cl.login_by_sessionid(cl.sessionid)
-
-        user_info = cl.user_info_by_username(username)
-        if str(user_info.pk) != str(cl.user_id):
-             raise InstagramLoginError("세션이 유효하지 않습니다.")
-
-        logger.info(f"{username} 세션 파일로 로그인 성공.")
-        return cl
-    except FileNotFoundError:
-        logger.error(f"세션 파일을 찾을 수 없습니다: {session_filename}")
-        raise InstagramLoginError(f"세션 파일을 찾을 수 없습니다: {session_filename}")
-    except Exception as e:
-        logger.error(f"{username} 세션 파일로 로그인 실패: {e}", exc_info=True)
-        raise InstagramLoginError("세션 파일로 로그인하지 못했습니다.") from e

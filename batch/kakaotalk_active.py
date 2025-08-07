@@ -16,13 +16,14 @@ from core.service import (
     producers_service, 
     producer_instagram_service, 
     instagram_session_service,
-    instagram_login_service
+    instagram_login_service,
+    verification_service
 )
 from batch import kakaotalk_parsing
 from batch.notification import Discord
 from dotenv import load_dotenv
 
-from core.service.models import CheckerDetail, ProducerDetail
+from core.service.models import CheckerDetail, ProducerDetail, VerificationDetail
 
 load_dotenv()
 logging.config.fileConfig('batch/logging.conf', disable_existing_loggers=False)
@@ -154,7 +155,11 @@ def main(db: Session):
                 logger.info(f"게시물 {shortcode}에 모든 producer가 좋아요 및 댓글을 작성합니다.")
                 for producer_info in logged_in_producers:
                     producer_cl = producer_info['client']
+
                     producer_username = producer_info['username']
+                    if producer_username == target.username:
+                        continue
+                    
                     try:
                         logger.info(f"'{producer_username}' 계정으로 좋아요 및 댓글 작성 시도.")
                         producer_cl.media_like(media_pk)

@@ -18,6 +18,16 @@ def get_verifications_service(db: Session) -> List[VerificationDetail]:
         logger.error(f"SNS 키우기 인증 목록을 가져오는데 실패했습니다: {e}", exc_info=True)
         raise
 
+def get_verifications(db: Session, username: str) -> List[VerificationDetail]:
+    logger.info(f"{username}의 SNS 키우기 인증 목록 조회 요청")
+    try:
+        verifications = verification_db.get_verifications(db, username)
+        logger.info(f"{len(verifications)}개의 인증을 반환합니다.")
+        return [VerificationDetail.from_orm(v) for v in verifications]
+    except Exception as e:
+        logger.error(f"SNS 키우기 인증 목록을 가져오는데 실패했습니다: {e}", exc_info=True)
+        raise
+
 
 def save_verification(session: Session, verification: UserActionVerification) -> bool:
     """검증 결과를 데이터베이스에 저장합니다. 중복은 저장하지 않습니다."""

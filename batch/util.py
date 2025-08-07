@@ -26,6 +26,8 @@ def sleep_by_count(count: int, amount: int, sec: int):
     if count % amount == 0:
         sleep_to_log(sec)
 
-def sleep_to_log(sec: int = random.randint(50, 65)):
+def sleep_to_log(sec: int = 0):
+    if sec == 0:
+        sec = random.randint(60, 100)
     logger.info(f"{sec}초 중단.")
     sleep(sec)

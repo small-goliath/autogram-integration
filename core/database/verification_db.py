@@ -8,6 +8,8 @@ def get_all_verifications(db: Session):
     """모든 사용자 활동 인증을 가져옵니다."""
     return db.query(UserActionVerification).all()
 
+def get_verifications(db: Session, username: str):
+    return db.query(UserActionVerification).filter(UserActionVerification.username==username).all()
 
 def save_verification_if_not_exists(session: Session, verification: UserActionVerification) -> bool:
     """검증 결과가 존재하지 않으면 데이터베이스에 저장합니다."""
