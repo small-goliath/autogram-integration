@@ -31,6 +31,17 @@ def _register_producer(db: Session, username: str, group_id: int, session_string
     producer = producer_db.save(db, username, group_id, session_string)
     return ProducerDetail.from_orm(producer)
 
+
+def update_producer_session(db: Session, username: str, session_string: str):
+    """생산자 세션을 데이터베이스에 업데이트합니다."""
+    logger.info(f"'{username}' 계정의 세션을 갱신합니다.")
+    producer = producer_db.update_session(db, username, session_string)
+    if not producer:
+        logger.warning(f"'{username}' 계정의 세션을 갱신하는데 실패했습니다. DB에서 사용자를 찾을 수 없습니다.")
+    else:
+        logger.info(f"'{username}' 계정의 세션을 갱신했습니다.")
+
+
 def login_and_register_producer(db: Session, username: str, password: str, group_id: int) -> ProducerDetail:
     group = group_db.get(db, group_id)
     if not group:

@@ -14,3 +14,12 @@ def save(db: Session, username:str, group_id: int, session_string: str) -> Produ
     db.commit()
     db.refresh(db_producer)
     return db_producer
+
+def update_session(db: Session, username: str, session_string: str) -> Producer | None:
+    db_producer = db.query(Producer).filter(Producer.username == username).first()
+    if db_producer:
+        db_producer.session = session_string
+        db.add(db_producer)
+        db.commit()
+        db.refresh(db_producer)
+    return db_producer

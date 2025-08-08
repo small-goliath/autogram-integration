@@ -39,6 +39,9 @@ def main(db: Session):
     COMMENT_API_URL = os.getenv("COMMENT_API_URL")
 
     try:
+        logged_in_producers: List[dict[str, Client | str]] = []
+        logged_in_checkers: List[dict[str, Client | str]] = []
+        consumers: List[ConsumerDetail] = []
         with read_only_transaction_scope(db):
             # producer 계정 정보 조회
             producers: List[ProducerDetail] = producers_service.get_producers(db)
@@ -48,7 +51,6 @@ def main(db: Session):
                 sys.exit(1)
 
             # producer 계정으로 로그인 시도
-            logged_in_producers: List[dict[str, Client | str]] = []
             for producer in producers:
                 try:
                     producer_cl = (
@@ -76,7 +78,6 @@ def main(db: Session):
                 sys.exit(1)
 
             # checker 계정으로 로그인 시도
-            logged_in_checkers: List[dict[str, Client | str]] = []
             for checker in checkers:
                 try:
                     cl = instagram_login_service.login_with_session(
@@ -94,7 +95,7 @@ def main(db: Session):
                 discord.send_message("활동 검증 checker 계정 로그인 실패.")
                 sys.exit(1)
 
-            consumers: List[ConsumerDetail] = consumer_service.get_consumers(db)
+            consumers = consumer_service.get_consumers(db)
             if not consumers:
                 logger.info("처리할 consumer가 없습니다. 배치를 종료합니다.")
                 return
@@ -162,6 +163,7 @@ def main(db: Session):
 
                     # 모든 producer가 좋아요 및 댓글 수행
                     logger.info(f"게시물 {media.code}에 모든 producer가 좋아요 및 댓글을 작성합니다.")
+                    comment_texts: List[str] = []
                     for producer_info in logged_in_producers:
                         producer_username = producer_info["username"]
                         if producer_username == media.user.username or producer_username in commenting_usernames:
@@ -172,7 +174,7 @@ def main(db: Session):
                             logger.info("댓글 생성 API를 호출합니다.")
                             caption = str(media.caption_text).replace("\n", " ")
                             response = requests.post(
-                                COMMENT_API_URL, json={"text": caption}, timeout=30
+                                COMMENT_API_URL, json={"text": caption, "pre_comments": comment_texts}, timeout=30
                             )
                             response.raise_for_status()
                             comment_text = response.json().get("answer")
@@ -183,6 +185,7 @@ def main(db: Session):
                             logger.error("댓글 생성에 실패했거나 유효하지 않은 응답입니다.")
                             continue
 
+                        comment_texts.append(comment_text)
                         producer_cl = producer_info["client"]
                         try:
                             logger.info(f"'{producer_username}' 계정으로 좋아요 및 댓글 작성 시도.")
@@ -198,6 +201,17 @@ def main(db: Session):
                 except Exception as e:
                     logger.error(f"게시물 처리 중 오류 발생 (https://www.instagram.com/p/{media.code}): {e}", exc_info=True)
                     continue
+        
+        logger.info("모든 작업 완료 후 producer 세션을 갱신합니다.")
+        for producer_info in logged_in_producers:
+            try:
+                username = producer_info["username"]
+                client: Client = producer_info["client"]
+                session_string = client.dump_settings_to_string()
+                producers_service.update_producer_session(db, username, session_string)
+            except Exception as e:
+                logger.error(f"'{username}' 계정의 세션 갱신 중 오류 발생: {e}", exc_info=True)
+                continue
 
     except Exception as e:
         logger.critical(f"producer 배치 실행 중 심각한 오류 발생: {e}", exc_info=True)

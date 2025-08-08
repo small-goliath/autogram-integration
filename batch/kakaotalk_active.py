@@ -1,10 +1,8 @@
 import logging
 import logging.config
 import os
-import random
 import re
 import sys
-import time
 from typing import List
 import requests
 from sqlalchemy.orm import Session
@@ -15,15 +13,13 @@ from core.service import (
     checkers_service,
     producers_service, 
     producer_instagram_service, 
-    instagram_session_service,
-    instagram_login_service,
-    verification_service
+    instagram_login_service
 )
 from batch import kakaotalk_parsing
 from batch.notification import Discord
 from dotenv import load_dotenv
 
-from core.service.models import CheckerDetail, ProducerDetail, VerificationDetail
+from core.service.models import CheckerDetail, ProducerDetail
 
 load_dotenv()
 logging.config.fileConfig('batch/logging.conf', disable_existing_loggers=False)
@@ -42,26 +38,26 @@ def main(db: Session):
     logger.info("카카오톡 채팅방 대화내용으로부터 일괄 댓글 및 좋아요 배치를 시작합니다.")
     discord = Discord()
 
-    CHECKER_USERNAME = "muscle.er"
     COMMENT_API_URL = os.getenv("COMMENT_API_URL")
 
     try:
+        logged_in_producers: List[dict[str, Client | str]] = []
+        logged_in_checkers: List[dict[str, Client | str]] = []
         with read_only_transaction_scope(db):
             # producer 계정 정보 조회
-            producers: List[ProducerDetail] = producers_service.get_producers()
+            producers: List[ProducerDetail] = producers_service.get_producers(db)
             if not producers:
                 logger.error("producer 계정이 등록되어 있지 않습니다.")
                 discord.send_message("producer 계정이 등록되어 있지 않습니다.")
                 sys.exit(1)
             
             # producer 계정으로 로그인 시도
-            logged_in_producers: List[dict[str, Client | str]] = []
             for producer in producers:
                 try:
                     producer_cl = producer_instagram_service.login_with_session_producer(producer.username, producer.session)
                     logged_in_producers.append({'client': producer_cl, 'username': producer.username})
                 except Exception as e:
-                    logger.error(f" checker 계정 '{checker.username}'으로 로그인 실패: {e}")
+                    logger.error(f" producer 계정 '{producer.username}'으로 로그인 실패: {e}")
                     continue
             
             if not logged_in_producers:
@@ -77,7 +73,6 @@ def main(db: Session):
                 sys.exit(1)
 
             # checker 계정으로 로그인 시도
-            logged_in_checkers: List[dict[str, Client | str]] = []
             for checker in checkers:
                 try:
                     cl = instagram_login_service.login_with_session(checker.username, checker.session)
@@ -173,6 +168,17 @@ def main(db: Session):
             
             except Exception as e:
                 logger.error(f"게시물 처리 중 오류 발생 ({target.link}): {e}", exc_info=True)
+                continue
+
+        logger.info("모든 작업 완료 후 producer 세션을 갱신합니다.")
+        for producer_info in logged_in_producers:
+            try:
+                username = producer_info["username"]
+                client: Client = producer_info["client"]
+                session_string = client.dump_settings_to_string()
+                producers_service.update_producer_session(db, username, session_string)
+            except Exception as e:
+                logger.error(f"'{username}' 계정의 세션 갱신 중 오류 발생: {e}", exc_info=True)
                 continue
 
     except Exception as e:
