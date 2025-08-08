@@ -132,23 +132,25 @@ def main(db: Session):
                     discord.send_message(error_message)
                     continue
 
-                # 댓글 생성 API 호출
-                if media_info.caption_text:
-                    logger.info("댓글 생성 API를 호출합니다.")
-                    caption = str(media_info.caption_text).replace("\n", " ")
-                    response = requests.post(COMMENT_API_URL, json={'text': caption}, timeout=30)
-                    response.raise_for_status()
-                    comment_text = response.json().get("answer")
-                else:
-                    comment_text = "멋져요! 😍"
-                
-                if not comment_text:
-                    logger.error("댓글 생성에 실패했거나 유효하지 않은 응답입니다.")
-                    continue
-
                 # 모든 producer가 좋아요 및 댓글 수행
                 logger.info(f"게시물 {shortcode}에 모든 producer가 좋아요 및 댓글을 작성합니다.")
+                comment_texts: List[str] = []
                 for producer_info in logged_in_producers:
+                    # 댓글 생성 API 호출
+                    if media_info.caption_text:
+                        logger.info("댓글 생성 API를 호출합니다.")
+                        caption = str(media_info.caption_text).replace("\n", " ")
+                        response = requests.post(COMMENT_API_URL, json={'text': caption, "pre_comments": comment_texts}, timeout=30)
+                        response.raise_for_status()
+                        comment_text = response.json().get("answer")
+                    else:
+                        comment_text = "멋져요! 😍"
+                    
+                    if not comment_text:
+                        logger.error("댓글 생성에 실패했거나 유효하지 않은 응답입니다.")
+                        continue
+
+                    comment_texts.append(comment_text)
                     producer_cl = producer_info['client']
 
                     producer_username = producer_info['username']
@@ -158,10 +160,10 @@ def main(db: Session):
                     try:
                         logger.info(f"'{producer_username}' 계정으로 좋아요 및 댓글 작성 시도.")
                         producer_cl.media_like(media_pk)
-                        sleep_to_log(30)
+                        sleep_to_log()
                         producer_cl.media_comment(media_pk, comment_text)
                         logger.info(f"'{producer_username}' 계정으로 좋아요 및 댓글 작성 완료.")
-                        sleep_to_log(60)
+                        sleep_to_log()
                     except Exception as e:
                         logger.error(f"'{producer_username}' 계정으로 게시물 처리 중 오류 발생 ({target.link}): {e}", exc_info=True)
                         continue
