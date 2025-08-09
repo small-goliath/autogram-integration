@@ -163,39 +163,40 @@ def main(db: Session):
                         if not comments_fetched:
                             logger.warning(f"게시물 {media.code}의 댓글을 가져오는 데 모든 checker가 실패했습니다. 최종 오류: {last_comment_exception}. 댓글 중복 확인을 건너뜁니다.")
 
+                    # 댓글 생성 API 호출
+                    if media.caption_text:
+                        logger.info("댓글 생성 API를 호출합니다.")
+                        caption = str(media.caption_text).replace("\n", " ")
+                        response = requests.post(
+                            COMMENT_API_URL, json={"text": caption, "amount": len(logged_in_producers)}, timeout=30
+                        )
+                        response.raise_for_status()
+                        comment_texts = response.json().get("answer")
+                        random.shuffle(comment_texts)
+                    else:
+                        continue
+
+                    if not comment_texts:
+                        logger.error("댓글 생성에 실패했거나 유효하지 않은 응답입니다.")
+                        continue
+
                     # 모든 producer가 좋아요 및 댓글 수행
                     logger.info(f"게시물 {media.code}에 모든 producer가 좋아요 및 댓글을 작성합니다.")
-                    comment_texts: List[str] = []
                     for producer_info in logged_in_producers:
                         producer_username = producer_info["username"]
+                        producer_cl = producer_info["client"]
                         if producer_username == media.user.username or producer_username in commenting_usernames:
                             continue
-                        
-                        # 댓글 생성 API 호출
-                        if media.caption_text:
-                            logger.info("댓글 생성 API를 호출합니다.")
-                            caption = str(media.caption_text).replace("\n", " ")
-                            response = requests.post(
-                                COMMENT_API_URL, json={"text": caption, "pre_comments": comment_texts}, timeout=30
-                            )
-                            response.raise_for_status()
-                            comment_text = response.json().get("answer")
-                        else:
-                            comment_text = "멋져요! 😍"
 
-                        if not comment_text:
-                            logger.error("댓글 생성에 실패했거나 유효하지 않은 응답입니다.")
-                            continue
-
-                        comment_texts.append(comment_text)
-                        producer_cl = producer_info["client"]
                         try:
                             logger.info(f"'{producer_username}' 계정으로 좋아요 및 댓글 작성 시도.")
                             producer_cl.media_like(media.pk)
                             sleep_to_log()
-                            producer_cl.media_comment(media.pk, comment_text)
+                            producer_cl.media_comment(media.pk, comment_texts.pop())
                             logger.info(f"'{producer_username}' 계정으로 좋아요 및 댓글 작성 완료.")
                             sleep_to_log()
+                        except IndexError as e:
+                            logger.error(f"댓글이 모자랍니다: {e}")
                         except Exception as e:
                             if "challenge_required" in str(e) or "login_required" in str(e):
                                 initialize()
