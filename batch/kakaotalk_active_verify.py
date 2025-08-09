@@ -7,7 +7,7 @@ from typing import List
 from instagrapi import Client
 from dotenv import load_dotenv
 
-from batch.init_checker import initialize
+from batch import init_checker
 from batch.kakaotalk_parsing import parsing
 from batch.notification import Discord
 from batch.util import sleep_to_log
@@ -130,7 +130,7 @@ def verify_actions(db):
 
                 except Exception as e:
                     if "challenge_required" in str(e) or "login_required" in str(e):
-                        initialize()
+                        init_checker.initialize()
                         sleep_to_log()
                     log_prefix = "재" if iteration_count > 0 else ""
                     logger.error(f"'{checker_username}'으로 게시물({shortcode}) {log_prefix}처리 중 오류 발생: {e}")

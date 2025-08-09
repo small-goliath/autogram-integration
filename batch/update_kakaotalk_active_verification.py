@@ -6,7 +6,7 @@ from typing import List
 from collections import defaultdict
 from sqlalchemy.orm import Session
 from instagrapi import Client
-from batch.init_checker import initialize
+from batch import init_checker
 from batch.util import sleep_to_log
 from core.db_transaction import transaction_scope, with_session
 from core.service import checkers_service, instagram_login_service, verification_service
@@ -95,7 +95,7 @@ def verify_actions(db: Session):
                 except Exception as e:
                     last_exception = e
                     if "challenge_required" in str(e) or "login_required" in str(e):
-                        initialize()
+                        init_checker.initialize()
                         sleep_to_log()
                         continue
                     logger.warning(f"'{checker_username}' 계정으로 '{link}' 링크 처리 중 오류 발생: {e}. 다른 checker로 재시도합니다.")
