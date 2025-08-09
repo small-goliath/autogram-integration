@@ -79,7 +79,7 @@ def verify_actions(db: Session):
                     with transaction_scope(db):
                         media_pk = cl.media_pk_from_code(shortcode)
                         
-                        comments = cl.media_comments(media_pk)
+                        comments = cl.media_comments(media_pk, amount=0)
                         commenters = {comment.user.username for comment in comments}
                         
                         sleep_to_log()

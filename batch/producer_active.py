@@ -147,7 +147,7 @@ def main(db: Session):
                             checker_username = checker_info["username"]
                             try:
                                 logger.info(f"'{checker_username}' 계정으로 게시물 {media.code}의 댓글 목록 조회 시도.")
-                                comments = checker_cl.media_comments(media.pk)
+                                comments = checker_cl.media_comments(media.pk, amount=0)
                                 commenting_usernames = {c.user.username for c in comments}
                                 logger.info(f"'{checker_username}' 계정으로 게시물 {media.code}의 기존 댓글 {len(commenting_usernames)}개 확인.")
                                 comments_fetched = True
@@ -212,176 +212,197 @@ def main(db: Session):
         logger.critical(f"producer 배치 실행 중 심각한 오류 발생: {e}", exc_info=True)
         discord.send_message(message=f"producer 배치 실패: {e}")
 
-    try:
-        logger.info("Producer들의 게시물에 대한 대댓글 작업을 시작합니다.")
-        num_checkers = len(logged_in_checkers)
-        if num_checkers == 0:
-            logger.warning("대댓글 작업을 위한 checker가 없어 해당 작업을 건너뜁니다.")
-        else:
-            for producer_info in logged_in_producers:
-                producer_auth_error = False
-                producer_username = producer_info["username"]
-                producer_cl = producer_info["client"]
+    # FIXME: 모든 댓글 조회시 대댓글은 조회가 되지 않아서 대댓글을 이미 작성했는지 알 수 없음
+    # try:
+    #     logger.info("Producer들의 게시물에 대한 대댓글 작업을 시작합니다.")
+    #     num_checkers = len(logged_in_checkers)
+    #     if num_checkers == 0:
+    #         logger.warning("대댓글 작업을 위한 checker가 없어 해당 작업을 건너뜁니다.")
+    #     else:
+    #         for producer_info in logged_in_producers:
+    #             producer_auth_error = False
+    #             producer_username = producer_info["username"]
+    #             producer_cl = producer_info["client"]
 
-                producer_medias = []
-                last_media_exception = None
-                for i in range(num_checkers):
-                    checker_info = logged_in_checkers[i]
-                    checker_cl = checker_info["client"]
-                    checker_username = checker_info["username"]
-                    try:
-                        logger.info(
-                            f"'{checker_username}' 계정으로 '{producer_username}'의 최근 게시물 조회 시도."
-                        )
-                        producer_user_id = checker_cl.user_id_from_username(
-                            username=producer_username
-                        )
-                        producer_medias = checker_cl.user_medias(
-                            user_id=producer_user_id, amount=4, sleep=3
-                        )
-                        logger.info(
-                            f"'{checker_username}' 계정으로 '{producer_username}'의 게시물 {len(producer_medias)}개 조회 성공."
-                        )
-                        break
-                    except Exception as e:
-                        last_media_exception = e
-                        logger.warning(
-                            f"'{checker_username}' 계정으로 '{producer_username}'의 게시물 조회 실패: {e}. 다른 checker로 재시도합니다."
-                        )
-                        continue
-                    finally:
-                        sleep_to_log()
+    #             producer_medias = []
+    #             last_media_exception = None
+    #             for i in range(num_checkers):
+    #                 checker_info = logged_in_checkers[i]
+    #                 checker_cl = checker_info["client"]
+    #                 checker_username = checker_info["username"]
+    #                 try:
+    #                     logger.info(
+    #                         f"'{checker_username}' 계정으로 '{producer_username}'의 최근 게시물 조회 시도."
+    #                     )
+    #                     producer_user_id = checker_cl.user_id_from_username(
+    #                         username=producer_username
+    #                     )
+    #                     producer_medias = checker_cl.user_medias(
+    #                         user_id=producer_user_id, amount=4, sleep=3
+    #                     )
+    #                     logger.info(
+    #                         f"'{checker_username}' 계정으로 '{producer_username}'의 게시물 {len(producer_medias)}개 조회 성공."
+    #                     )
+    #                     break
+    #                 except Exception as e:
+    #                     last_media_exception = e
+    #                     logger.warning(
+    #                         f"'{checker_username}' 계정으로 '{producer_username}'의 게시물 조회 실패: {e}. 다른 checker로 재시도합니다."
+    #                     )
+    #                     continue
+    #                 finally:
+    #                     sleep_to_log()
 
-                if not producer_medias:
-                    logger.error(
-                        f"'{producer_username}'의 게시물 조회에 모든 checker가 실패했습니다. 최종 오류: {last_media_exception}"
-                    )
-                    continue
+    #             if not producer_medias:
+    #                 logger.error(
+    #                     f"'{producer_username}'의 게시물 조회에 모든 checker가 실패했습니다. 최종 오류: {last_media_exception}"
+    #                 )
+    #                 continue
 
-                for media in producer_medias:
-                    if producer_auth_error:
-                        break
+    #             for media in producer_medias:
+    #                 if producer_auth_error:
+    #                     break
 
-                    try:
-                        logger.info(
-                            f"Producer 게시물 처리 중: https://www.instagram.com/p/{media.code}"
-                        )
+    #                 try:
+    #                     logger.info(
+    #                         f"Producer 게시물 처리 중: https://www.instagram.com/p/{media.code}"
+    #                     )
 
-                        comments = []
-                        last_comment_exception = None
-                        comments_fetched = False
-                        for i in range(num_checkers):
-                            checker_info = logged_in_checkers[i]
-                            checker_cl = checker_info["client"]
-                            checker_username = checker_info["username"]
-                            try:
-                                logger.info(
-                                    f"'{checker_username}' 계정으로 게시물 {media.code}의 댓글 목록 조회 시도."
-                                )
-                                comments: List[Comment] = checker_cl.media_comments(media.pk)
-                                logger.info(
-                                    f"'{checker_username}' 계정으로 게시물 {media.code}의 댓글 {len(comments)}개 조회 성공."
-                                )
-                                comments_fetched = True
-                                break
-                            except Exception as e:
-                                last_comment_exception = e
-                                logger.warning(
-                                    f"'{checker_username}' 계정으로 게시물 {media.code}의 댓글 조회 실패: {e}. 다른 checker로 재시도합니다."
-                                )
-                                continue
-                            finally:
-                                sleep_to_log()
+    #                     comments = []
+    #                     last_comment_exception = None
+    #                     comments_fetched = False
+    #                     for i in range(num_checkers):
+    #                         checker_info = logged_in_checkers[i]
+    #                         checker_cl = checker_info["client"]
+    #                         checker_username = checker_info["username"]
+    #                         try:
+    #                             logger.info(
+    #                                 f"'{checker_username}' 계정으로 게시물 {media.code}의 댓글 목록 조회 시도."
+    #                             )
+    #                             all_comments = []
+    #                             next_min_id = None
+    #                             while True:
+    #                                 comments_chunk, next_min_id = checker_cl.media_comments_chunk(
+    #                                     media.pk, max_amount=100, min_id=next_min_id
+    #                                 )
+    #                                 all_comments.extend(comments_chunk)
+    #                                 if not next_min_id:
+    #                                     break
+    #                                 sleep_to_log(1)
+    #                             comments: List[Comment] = all_comments
+    #                             logger.info(
+    #                                 f"'{checker_username}' 계정으로 게시물 {media.code}의 댓글 {len(comments)}개 조회 성공."
+    #                             )
+    #                             comments_fetched = True
+    #                             break
+    #                         except Exception as e:
+    #                             last_comment_exception = e
+    #                             logger.warning(
+    #                                 f"'{checker_username}' 계정으로 게시물 {media.code}의 댓글 조회 실패: {e}. 다른 checker로 재시도합니다."
+    #                             )
+    #                             continue
+    #                         finally:
+    #                             sleep_to_log()
 
-                        if not comments_fetched:
-                            logger.error(
-                                f"게시물 {media.code}의 댓글 조회에 모든 checker가 실패했습니다. 최종 오류: {last_comment_exception}"
-                            )
-                            continue
+    #                     if not comments_fetched:
+    #                         logger.error(
+    #                             f"게시물 {media.code}의 댓글 조회에 모든 checker가 실패했습니다. 최종 오류: {last_comment_exception}"
+    #                         )
+    #                         continue
 
-                        # 이미 대댓글을 작성한 부모 댓글 ID 목록
-                        producer_replied_to_ids = {
-                            c.replied_to_comment_id
-                            for c in comments
-                            if c.user.username == producer_username and c.replied_to_comment_id
-                        }
+    #                     for c in comments:
+    #                         print(f"[{c.pk}] {c.replied_to_comment_id} - {c.text}")
 
-                        # 대댓글을 달 부모 댓글 필터링
-                        parent_comments_to_reply = [
-                            c
-                            for c in comments
-                            if c.replied_to_comment_id is None  # 부모 댓글인지 확인
-                            and c.user.username != producer_username  # 자신의 댓글이 아님
-                            and c.pk not in producer_replied_to_ids  # 아직 대댓글 안 닮
-                        ]
+    #                     # producer가 이미 대댓글을 작성한 부모 댓글 ID 수집
+    #                     replied_to_parent_pks = {
+    #                         c.replied_to_comment_id
+    #                         for c in comments
+    #                         if c.user.username == producer_username
+    #                         and c.replied_to_comment_id
+    #                     }
 
-                        if not parent_comments_to_reply:
-                            logger.info(f"게시물 {media.code}에 대댓글을 달 새로운 댓글이 없습니다.")
-                            continue
+    #                     print(replied_to_parent_pks)
 
-                        logger.info(
-                            f"게시물 {media.code}에 {len(parent_comments_to_reply)}개의 댓글에 대댓글을 작성합니다."
-                        )
+    #                     # 대댓글을 달 부모 댓글 필터링
+    #                     # 1. 자신이 단 댓글 제외
+    #                     # 2. 이미 대댓글을 단 댓글 제외
+    #                     # 3. 대댓글이 아닌 원본 댓글만 대상
+    #                     parent_comments_to_reply = [
+    #                         c
+    #                         for c in comments
+    #                         if c.user.username != producer_username
+    #                         and c.pk not in replied_to_parent_pks
+    #                         and c.replied_to_comment_id is None
+    #                     ]
 
-                        for parent_comment in parent_comments_to_reply:
-                            try:
-                                parent_comment_text = parent_comment.text
-                                if not parent_comment_text:
-                                    continue
+    #                     print(parent_comments_to_reply)
 
-                                # 부모 댓글 내용을 대상으로 댓글 생성 API 호출하여 댓글 생성
-                                logger.info(
-                                    f"댓글 생성 API 호출 (부모 댓글: '{parent_comment_text[:30]}...')"
-                                )
-                                response = requests.post(
-                                    RE_COMMENT_API_URL,
-                                    json={"text": parent_comment_text, "amount": 1},
-                                    timeout=30,
-                                )
-                                response.raise_for_status()
-                                reply_texts = response.json().get("answer")
+    #                     if not parent_comments_to_reply:
+    #                         logger.info(f"게시물 {media.code}에 대댓글을 달 새로운 댓글이 없습니다.")
+    #                         continue
 
-                                if not reply_texts:
-                                    logger.error("대댓글 생성에 실패했거나 유효하지 않은 응답입니다.")
-                                    continue
+    #                     logger.info(
+    #                         f"게시물 {media.code}에 {len(parent_comments_to_reply)}개의 댓글에 대댓글을 작성합니다."
+    #                     )
 
-                                reply_text = reply_texts[0]
+    #                     for parent_comment in parent_comments_to_reply:
+    #                         try:
+    #                             parent_comment_text = parent_comment.text
+    #                             if not parent_comment_text:
+    #                                 continue
 
-                                # 대댓글 작성
-                                logger.info(
-                                    f"'{producer_username}' 계정으로 대댓글 작성 시도: '{reply_text[:30]}...'"
-                                )
-                                producer_cl.media_comment(
-                                    media.pk,
-                                    reply_text,
-                                    replied_to_comment_id=parent_comment.pk,
-                                )
-                                logger.info(f"'{producer_username}' 계정으로 대댓글 작성 완료.")
-                                sleep_to_log()
+    #                             logger.info(
+    #                                 f"댓글 생성 API 호출 (부모 댓글: '{parent_comment_text[:30]}...')"
+    #                             )
+    #                             response = requests.post(
+    #                                 RE_COMMENT_API_URL,
+    #                                 json={"text": parent_comment_text, "amount": 1},
+    #                                 timeout=30,
+    #                             )
+    #                             response.raise_for_status()
+    #                             reply_texts = response.json().get("answer")
 
-                            except Exception as e:
-                                if "challenge_required" in str(
-                                    e
-                                ) or "login_required" in str(e):
-                                    logger.error(
-                                        f"'{producer_username}' 계정으로 대댓글 작성 중 인증 오류 발생. 이 producer의 나머지 작업을 중단합니다: {e}"
-                                    )
-                                    producer_auth_error = True
-                                    break
-                                logger.error(
-                                    f"대댓글 작성 중 오류 발생 (게시물 {media.code}, 부모 댓글 {parent_comment.pk}): {e}",
-                                    exc_info=True,
-                                )
-                                continue
-                    except Exception as e:
-                        logger.error(
-                            f"Producer 게시물 처리 중 오류 발생 (https://www.instagram.com/p/{media.code}): {e}",
-                            exc_info=True,
-                        )
-                        continue
-    except Exception as e:
-        logger.critical(f"producer 대댓글 작업 중 심각한 오류 발생: {e}", exc_info=True)
-        discord.send_message(message=f"producer 대댓글 작업 실패: {e}")
+    #                             if not reply_texts:
+    #                                 logger.error("대댓글 생성에 실패했거나 유효하지 않은 응답입니다.")
+    #                                 continue
+
+    #                             reply_text = reply_texts[0]
+
+    #                             # 대댓글 작성
+    #                             logger.info(
+    #                                 f"'{producer_username}' 계정으로 대댓글 작성 시도: '{reply_text[:30]}...'"
+    #                             )
+    #                             producer_cl.media_comment(
+    #                                 media.pk,
+    #                                 reply_text,
+    #                                 replied_to_comment_id=parent_comment.pk,
+    #                             )
+    #                             logger.info(f"'{producer_username}' 계정으로 대댓글 작성 완료.")
+    #                             sleep_to_log()
+
+    #                         except Exception as e:
+    #                             if "challenge_required" in str(
+    #                                 e
+    #                             ) or "login_required" in str(e):
+    #                                 logger.error(
+    #                                     f"'{producer_username}' 계정으로 대댓글 작성 중 인증 오류 발생. 이 producer의 나머지 작업을 중단합니다: {e}"
+    #                                 )
+    #                                 producer_auth_error = True
+    #                                 break
+    #                             logger.error(
+    #                                 f"대댓글 작성 중 오류 발생 (게시물 {media.code}, 부모 댓글 {parent_comment.pk}): {e}",
+    #                                 exc_info=True,
+    #                             )
+    #                             continue
+    #                 except Exception as e:
+    #                     logger.error(
+    #                         f"Producer 게시물 처리 중 오류 발생 (https://www.instagram.com/p/{media.code}): {e}",
+    #                         exc_info=True,
+    #                     )
+    #                     continue
+    # except Exception as e:
+    #     logger.critical(f"producer 대댓글 작업 중 심각한 오류 발생: {e}", exc_info=True)
+    #     discord.send_message(message=f"producer 대댓글 작업 실패: {e}")
 
     logger.info("모든 작업 완료 후 producer 세션을 갱신합니다.")
     for producer_info in logged_in_producers:

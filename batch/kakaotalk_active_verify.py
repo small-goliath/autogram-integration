@@ -107,7 +107,7 @@ def verify_actions(db):
                     media_info = cl.media_info(media_pk)
                     
                     sleep_to_log()
-                    comments = cl.media_comments(media_pk)
+                    comments = cl.media_comments(media_pk, amount=0)
                     commenters = {comment.user.username for comment in comments}
 
                     for user in all_users:
