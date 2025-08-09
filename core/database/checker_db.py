@@ -21,3 +21,12 @@ def save(db: Session, username: str, session: str) -> Checker:
     db.commit()
     db.refresh(new_checker)
     return new_checker
+
+def update_session(db: Session, username: str, session_string: str) -> Checker | None:
+    db_checker = db.query(Checker).filter(Checker.username == username).first()
+    if db_checker:
+        db_checker.session = session_string
+        db.add(db_checker)
+        db.commit()
+        db.refresh(db_checker)
+    return db_checker

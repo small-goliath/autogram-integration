@@ -107,6 +107,17 @@ def verify_actions(db: Session):
                 discord.send_message(error_message)
                 continue
 
+        logger.info("모든 작업 완료 후 checker 세션을 갱신합니다.")
+        for logged_in_checker in logged_in_checkers:
+            try:
+                username = logged_in_checker["username"]
+                client: Client = logged_in_checker["client"]
+                settings = client.get_settings()
+                checkers_service.update_session(username, settings)
+            except Exception as e:
+                logger.error(f"'{username}' 계정의 세션 갱신 중 오류 발생: {e}", exc_info=True)
+                continue
+
         summary = "카카오톡 활동 검증 배치 완료"
         logger.info(summary)
         discord.send_message(summary)

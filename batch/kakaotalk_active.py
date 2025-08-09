@@ -189,6 +189,17 @@ def main(db: Session):
                 logger.error(f"'{username}' 계정의 세션 갱신 중 오류 발생: {e}", exc_info=True)
                 continue
 
+        logger.info("모든 작업 완료 후 checker 세션을 갱신합니다.")
+        for logged_in_checker in logged_in_checkers:
+            try:
+                username = logged_in_checker["username"]
+                client: Client = logged_in_checker["client"]
+                settings = client.get_settings()
+                checkers_service.update_session(username, settings)
+            except Exception as e:
+                logger.error(f"'{username}' 계정의 세션 갱신 중 오류 발생: {e}", exc_info=True)
+                continue
+
     except Exception as e:
         logger.critical(f"배치 실행 중 심각한 오류 발생: {e}", exc_info=True)
         discord.send_message(message=f"카카오톡 활성화 배치 실패: {e}")
