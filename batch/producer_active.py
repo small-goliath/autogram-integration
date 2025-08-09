@@ -13,6 +13,7 @@ from dotenv import load_dotenv
 from instagrapi import Client
 from sqlalchemy.orm import Session
 
+from batch.init_checker import initialize
 from batch.notification import Discord
 from batch.util import sleep_to_log
 from core.db_transaction import read_only_transaction_scope, with_session
@@ -191,11 +192,15 @@ def main(db: Session):
                         try:
                             logger.info(f"'{producer_username}' 계정으로 좋아요 및 댓글 작성 시도.")
                             producer_cl.media_like(media.pk)
-                            sleep_to_log(30)
+                            sleep_to_log()
                             producer_cl.media_comment(media.pk, comment_text)
                             logger.info(f"'{producer_username}' 계정으로 좋아요 및 댓글 작성 완료.")
-                            sleep_to_log(60)
+                            sleep_to_log()
                         except Exception as e:
+                            if "challenge_required" in str(e) or "login_required" in str(e):
+                                initialize()
+                                sleep_to_log()
+                                continue
                             logger.error(f"'{producer_username}' 계정으로 게시물 처리 중 오류 발생 (https://www.instagram.com/p/{media.code}): {e}", exc_info=True)
                             continue
                 

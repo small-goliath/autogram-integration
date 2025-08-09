@@ -7,6 +7,7 @@ from typing import List
 import requests
 from sqlalchemy.orm import Session
 from instagrapi import Client
+from batch.init_checker import initialize
 from batch.util import sleep_to_log
 from core.db_transaction import read_only_transaction_scope, with_session
 from core.service import (
@@ -122,6 +123,10 @@ def main(db: Session):
                         break
                     except Exception as e:
                         last_exception = e
+                        if "challenge_required" in str(e) or "login_required" in str(e):
+                            initialize()
+                            sleep_to_log()
+                            continue
                         logger.warning(f"'{checker_username}' 계정으로 media_info 조회 실패: {e}. 다른 checker로 재시도합니다.")
                         sleep_to_log(10)
                         continue
