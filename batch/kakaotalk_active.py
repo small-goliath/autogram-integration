@@ -145,7 +145,6 @@ def main(db: Session):
                     response = requests.post(COMMENT_API_URL, json={'text': caption, "amount": len(logged_in_producers)}, timeout=30)
                     response.raise_for_status()
                     comment_texts = response.json().get("answer")
-                    random.shuffle(comment_texts)
                 else:
                     continue
                 
@@ -154,6 +153,7 @@ def main(db: Session):
                     continue
 
                 # 모든 producer가 좋아요 및 댓글 수행
+                random.shuffle(comment_texts)
                 logger.info(f"게시물 {shortcode}에 모든 producer가 좋아요 및 댓글을 작성합니다.")
                 for producer_info in logged_in_producers:
                     producer_cl = producer_info['client']
