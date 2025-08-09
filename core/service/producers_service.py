@@ -1,3 +1,4 @@
+import json
 import logging
 from typing import List
 from sqlalchemy.orm import Session
@@ -32,9 +33,10 @@ def _register_producer(db: Session, username: str, group_id: int, session_string
     return ProducerDetail.from_orm(producer)
 
 
-def update_producer_session(db: Session, username: str, session_string: str):
+def update_producer_session(db: Session, username: str, settings: dict):
     """생산자 세션을 데이터베이스에 업데이트합니다."""
     logger.info(f"'{username}' 계정의 세션을 갱신합니다.")
+    session_string = json.dumps(settings).encode('utf-8')
     producer = producer_db.update_session(db, username, session_string)
     if not producer:
         logger.warning(f"'{username}' 계정의 세션을 갱신하는데 실패했습니다. DB에서 사용자를 찾을 수 없습니다.")

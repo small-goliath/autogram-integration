@@ -177,8 +177,8 @@ def main(db: Session):
             try:
                 username = producer_info["username"]
                 client: Client = producer_info["client"]
-                session_string = client.dump_settings_to_string()
-                producers_service.update_producer_session(db, username, session_string)
+                settings = client.get_settings()
+                producers_service.update_producer_session(db, username, settings)
             except Exception as e:
                 logger.error(f"'{username}' 계정의 세션 갱신 중 오류 발생: {e}", exc_info=True)
                 continue
