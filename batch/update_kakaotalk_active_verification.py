@@ -4,6 +4,7 @@ import re
 import sys
 from typing import List
 from collections import defaultdict
+from instagrapi.types import Comment
 from sqlalchemy.orm import Session
 from instagrapi import Client
 from batch import init_checker
@@ -79,7 +80,17 @@ def verify_actions(db: Session):
                     with transaction_scope(db):
                         media_pk = cl.media_pk_from_code(shortcode)
                         
-                        comments = cl.media_comments(media_pk, amount=0)
+                        comments: List[Comment] = []
+                        min_id = None
+                        while True:
+                            comments_chunk, next_min_id = cl.media_comments_chunk(
+                                media_pk, max_amount=100, min_id=min_id
+                            )
+                            comments.extend(comments_chunk)
+                            if not next_min_id:
+                                break
+                            min_id = next_min_id
+                            sleep_to_log(10)
                         commenters = {comment.user.username for comment in comments}
                         
                         sleep_to_log()
