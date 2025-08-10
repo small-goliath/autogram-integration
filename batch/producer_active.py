@@ -123,6 +123,11 @@ def main(db: Session):
                     )
                     break
                 except Exception as e:
+                    if "challenge_required" in str(e) or "login_required" in str(e):
+                        logger.warning(f"재로그인합니다: {e}")
+                        init_checker.initialize()
+                        sleep_to_log()
+                        continue
                     last_exception = e
                     logger.warning(
                         f"'{checker_username}' 계정으로 '{consumer.username}'의 게시물 조회 실패: {e}. 다른 checker로 재시도합니다."
@@ -164,6 +169,11 @@ def main(db: Session):
                                 comments_fetched = True
                                 break
                             except Exception as e:
+                                if "challenge_required" in str(e) or "login_required" in str(e):
+                                    logger.warning(f"재로그인합니다: {e}")
+                                    init_checker.initialize()
+                                    sleep_to_log()
+                                    continue
                                 last_comment_exception = e
                                 logger.warning(
                                     f"'{checker_username}' 계정으로 게시물 {media.code}의 댓글을 가져오는 데 실패했습니다: {e}. 다른 checker로 재시도합니다."
@@ -220,12 +230,6 @@ def main(db: Session):
                         except IndexError as e:
                             logger.error(f"댓글이 모자랍니다: {e}")
                         except Exception as e:
-                            if "challenge_required" in str(
-                                e
-                            ) or "login_required" in str(e):
-                                init_checker.initialize()
-                                sleep_to_log()
-                                continue
                             logger.error(
                                 f"'{producer_username}' 계정으로 게시물 처리 중 오류 발생 (https://www.instagram.com/p/{media.code}): {e}",
                                 exc_info=True,
