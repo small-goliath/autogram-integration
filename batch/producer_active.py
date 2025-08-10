@@ -153,13 +153,26 @@ def main(db: Session):
                         for j in range(num_checkers):
                             checker_index = (i + j) % num_checkers
                             checker_info = logged_in_checkers[checker_index]
-                            checker_cl = checker_info["client"]
+                            checker_cl: Client = checker_info["client"]
                             checker_username = checker_info["username"]
                             try:
                                 logger.info(
                                     f"'{checker_username}' 계정으로 게시물 {media.code}의 댓글 목록 조회 시도."
                                 )
-                                comments = checker_cl.media_comments(media.pk, amount=0)
+                                comments: List[Comment] = []
+                                min_id = None
+                                while True:
+                                    (
+                                        comments_chunk,
+                                        next_min_id,
+                                    ) = checker_cl.media_comments_chunk(
+                                        media.pk, max_amount=100, min_id=min_id
+                                    )
+                                    comments.extend(comments_chunk)
+                                    if not next_min_id:
+                                        break
+                                    min_id = next_min_id
+                                    sleep_to_log(10)
                                 commenting_usernames = {
                                     c.user.username for c in comments
                                 }
@@ -184,8 +197,9 @@ def main(db: Session):
 
                         if not comments_fetched:
                             logger.warning(
-                                f"게시물 {media.code}의 댓글을 가져오는 데 모든 checker가 실패했습니다. 최종 오류: {last_comment_exception}. 댓글 중복 확인을 건너뜁니다."
+                                f"게시물 {media.code}의 댓글을 가져오는 데 모든 checker가 실패했습니다. 최종 오류: {last_comment_exception}. 댓글 작성을 건너뜁니다."
                             )
+                            continue
 
                     # 댓글 생성 API 호출
                     if media.caption_text:
