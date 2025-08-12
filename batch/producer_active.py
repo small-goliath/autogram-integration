@@ -16,7 +16,7 @@ from sqlalchemy.orm import Session
 from batch import init_checker
 from batch.notification import Discord
 from batch.util import sleep_to_log
-from core.db_transaction import read_only_transaction_scope, with_session
+from core.db_transaction import read_only_transaction_scope, transaction_scope, with_session
 from core.service import (
     checkers_service,
     consumer_service,
@@ -453,10 +453,11 @@ def main(db: Session):
     logger.info("모든 작업 완료 후 producer 세션을 갱신합니다.")
     for producer_info in logged_in_producers:
         try:
-            username = producer_info["username"]
-            client: Client = producer_info["client"]
-            settings = client.get_settings()
-            producers_service.update_producer_session(db, username, settings)
+            with transaction_scope(db):
+                username = producer_info["username"]
+                client: Client = producer_info["client"]
+                settings = client.get_settings()
+                producers_service.update_producer_session(db, username, settings)
         except Exception as e:
             logger.error(f"'{username}' 계정의 세션 갱신 중 오류 발생: {e}", exc_info=True)
             continue
@@ -464,10 +465,11 @@ def main(db: Session):
     logger.info("모든 작업 완료 후 checker 세션을 갱신합니다.")
     for logged_in_checker in logged_in_checkers:
         try:
-            username = logged_in_checker["username"]
-            client: Client = logged_in_checker["client"]
-            settings = client.get_settings()
-            checkers_service.update_session(db, username, settings)
+            with transaction_scope(db):
+                username = logged_in_checker["username"]
+                client: Client = logged_in_checker["client"]
+                settings = client.get_settings()
+                checkers_service.update_session(db, username, settings)
         except Exception as e:
             logger.error(f"'{username}' 계정의 세션 갱신 중 오류 발생: {e}", exc_info=True)
             continue
