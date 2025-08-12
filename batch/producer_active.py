@@ -467,7 +467,7 @@ def main(db: Session):
             username = logged_in_checker["username"]
             client: Client = logged_in_checker["client"]
             settings = client.get_settings()
-            checkers_service.update_session(username, settings)
+            checkers_service.update_session(db, username, settings)
         except Exception as e:
             logger.error(f"'{username}' 계정의 세션 갱신 중 오류 발생: {e}", exc_info=True)
             continue
