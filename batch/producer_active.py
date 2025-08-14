@@ -87,6 +87,10 @@ def main(db: Session):
                         {"client": cl, "username": checker.username}
                     )
                 except Exception as e:
+                    if "세션이 만료되었거나 유효하지 않을 수 있습니다." in str(e):
+                        logger.warning(f"{e}: 모든 checker를 다시 로그인합니다...")
+                        init_checker.initialize()
+                        sleep_to_log()
                     logger.error(f" checker 계정 '{checker.username}'으로 로그인 실패: {e}")
                     continue
 
