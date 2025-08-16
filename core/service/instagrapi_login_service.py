@@ -15,7 +15,6 @@ logger = logging.getLogger(__name__)
 active_clients = {}
 
 def login(db: Session, username: str, password: str) -> Client:
-    logger.info(f"{username} 로그인을 시도합니다.")
     try:
         instagram_client = InstagramClient(username=username, password=password)
         instagram_client.login()

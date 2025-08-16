@@ -54,10 +54,8 @@ class InstagramClient:
         self.cl.handle_exception = self._handle_exception
         self.cl.change_password_handler = self._change_password_handler
         self.username = username
-        if password:
-            self.password = password
-        if verification_code:
-            self.verification_code = verification_code
+        self.password = password
+        self.verification_code = verification_code
         if session:
             self.session = json.loads(session)
         
@@ -65,7 +63,6 @@ class InstagramClient:
         self.cl.timezone_offset = 32400
         self.cl.locale = "ko_KR"
         self.cl.country_code = 82
-        self.cl.user_agent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36"
 
     def login(self):
         logger.info(f"[{self.username}] 인스타그램 로그인 시도")
