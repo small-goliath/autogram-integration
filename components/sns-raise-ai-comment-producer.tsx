@@ -54,7 +54,7 @@ export default function SnsRaiseAICommentProducer() {
     }
     setIsLoggingIn(true);
     setLoading(true);
-    console.log(`[${username}] AI 댓글 생산자 등록 및 로그인 시도 (그룹 ID: ${groupId})`);
+    console.log(`[${username}] AI 댓글 Producer 등록 및 로그인 시도 (그룹 ID: ${groupId})`);
     try {
       const res = await fetch('/api/sns-raise/producers/login', {
         method: 'POST',
@@ -71,14 +71,14 @@ export default function SnsRaiseAICommentProducer() {
         toast.info(data.message);
         setTwoFactorRequired(true);
       } else {
-        console.log(`[${username}] AI 댓글 생산자 등록 및 로그인 성공`);
+        console.log(`[${username}] AI 댓글 Producer 등록 및 로그인 성공`);
         toast.success(data.message);
         setUsername('');
         setPassword('');
         setGroupId(instagramGroups.length > 0 ? String(instagramGroups[0].id) : '');
       }
     } catch (err) {
-      console.error(`[${username}] AI 댓글 생산자 로그인 오류:`, err);
+      console.error(`[${username}] AI 댓글 Producer 로그인 오류:`, err);
       toast.error(err instanceof Error ? err.message : '로그인 중 오류가 발생했습니다.');
     } finally {
       setIsLoggingIn(false);
@@ -94,7 +94,7 @@ export default function SnsRaiseAICommentProducer() {
     }
     setIsLoggingIn(true);
     setLoading(true);
-    console.log(`[${username}] AI 댓글 생산자 2단계 인증 시도`);
+    console.log(`[${username}] AI 댓글 Producer 2단계 인증 시도`);
     try {
       const res = await fetch('/api/sns-raise/producers/login/2fa', {
         method: 'POST',
@@ -105,7 +105,7 @@ export default function SnsRaiseAICommentProducer() {
       if (!res.ok) {
         throw new Error(data.detail || '2FA 로그인에 실패했습니다.');
       }
-      console.log(`[${username}] AI 댓글 생산자 2단계 인증 성공`);
+      console.log(`[${username}] AI 댓글 Producer 2단계 인증 성공`);
       toast.success(data.message);
       setTwoFactorRequired(false);
       setUsername('');
@@ -113,7 +113,7 @@ export default function SnsRaiseAICommentProducer() {
       setVerificationCode('');
       setGroupId(instagramGroups.length > 0 ? String(instagramGroups[0].id) : '');
     } catch (err) {
-      console.error(`[${username}] AI 댓글 생산자 2단계 인증 오류:`, err);
+      console.error(`[${username}] AI 댓글 Producer 2단계 인증 오류:`, err);
       toast.error(err instanceof Error ? err.message : '2FA 인증 중 오류가 발생했습니다.');
     } finally {
       setIsLoggingIn(false);

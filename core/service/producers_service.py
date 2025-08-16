@@ -21,9 +21,9 @@ def get_producer(db: Session, username: str) -> ProducerDetail | None:
     return ProducerDetail.from_orm(producer)
 
 def _register_producer(db: Session, username: str, group_id: int, session_string: str) -> ProducerDetail:
-    """생산자를 데이터베이스에 저장하는 내부 함수입니다."""
+    """Producer를 데이터베이스에 저장하는 내부 함수입니다."""
     if get_producer(db, username):
-        raise AlreadyCreatedError(f"생산자 {username}이(가) 이미 존재합니다.")
+        raise AlreadyCreatedError(f"Producer {username}이(가) 이미 존재합니다.")
 
     group = group_db.get(db, group_id)
     if not group:
@@ -34,7 +34,7 @@ def _register_producer(db: Session, username: str, group_id: int, session_string
 
 
 def update_session(db: Session, username: str, settings: dict):
-    """생산자 세션을 데이터베이스에 업데이트합니다."""
+    """Producer 세션을 데이터베이스에 업데이트합니다."""
     logger.info(f"'{username}' 계정의 세션을 갱신합니다.")
     session_string = json.dumps(settings).encode('utf-8')
     producer = producer_db.update_session(db, username, session_string)
@@ -50,12 +50,12 @@ def login_and_register_producer(db: Session, username: str, password: str, group
         raise InvalidPropertyError(f"ID가 {group_id}인 그룹을 찾을 수 없습니다.")
 
     if get_producer(db, username):
-        raise AlreadyCreatedError(f"생산자 {username}이(가) 이미 존재합니다.")
+        raise AlreadyCreatedError(f"Producer {username}이(가) 이미 존재합니다.")
 
     instagrapi_login_service.login(db, username, password)
     session_string = instagram_session_service.get_session_string(db, username)
 
-    logger.info(f"{username}의 로그인이 성공했습니다. 생산자로 등록합니다.")
+    logger.info(f"{username}의 로그인이 성공했습니다. Producer로 등록합니다.")
     producer = _register_producer(db, username, group_id, session_string)
     return producer
 
@@ -63,7 +63,7 @@ def complete_2fa_and_register_producer(db: Session, username: str, verification_
     """
     2FA 완료 및 등록 프로세스를 조정합니다.
     1. 2FA 로그인을 완료합니다.
-    2. 생산자를 등록합니다.
+    2. Producer를 등록합니다.
 
     InstagramLoginError, AlreadyCreatedError, InvalidPropertyError를 발생시킵니다.
     """
@@ -71,6 +71,6 @@ def complete_2fa_and_register_producer(db: Session, username: str, verification_
     instagrapi_login_service.login_2fa(db, username, verification_code)
     session_string = instagram_session_service.get_session_string(db, username)
 
-    logger.info(f"{username}의 2FA 로그인이 성공했습니다. 생산자로 등록합니다.")
+    logger.info(f"{username}의 2FA 로그인이 성공했습니다. Producer로 등록합니다.")
     producer = _register_producer(db, username, group_id, session_string)
     return producer
