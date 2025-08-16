@@ -6,7 +6,7 @@ from core.database import producer_db, group_db
 from core.entities import Producer
 from core.exceptions import AlreadyCreatedError, InvalidPropertyError
 from core.service.models import ProducerDetail
-from core.service import instagrapi_login_service
+from core.service import instagrapi_login_service, instagram_session_service
 
 logger = logging.getLogger(__name__)
 
@@ -52,7 +52,8 @@ def login_and_register_producer(db: Session, username: str, password: str, group
     if get_producer(db, username):
         raise AlreadyCreatedError(f"생산자 {username}이(가) 이미 존재합니다.")
 
-    session_string = instagrapi_login_service.login(username, password)
+    instagrapi_login_service.login(db, username, password)
+    session_string = instagram_session_service.get_session_string(db, username)
 
     logger.info(f"{username}의 로그인이 성공했습니다. 생산자로 등록합니다.")
     producer = _register_producer(db, username, group_id, session_string)
@@ -67,7 +68,8 @@ def complete_2fa_and_register_producer(db: Session, username: str, verification_
     InstagramLoginError, AlreadyCreatedError, InvalidPropertyError를 발생시킵니다.
     """
     # 실패 시 로그인 오류를 발생시킵니다.
-    session_string = instagrapi_login_service.login_2fa(username, verification_code)
+    instagrapi_login_service.login_2fa(db, username, verification_code)
+    session_string = instagram_session_service.get_session_string(db, username)
 
     logger.info(f"{username}의 2FA 로그인이 성공했습니다. 생산자로 등록합니다.")
     producer = _register_producer(db, username, group_id, session_string)

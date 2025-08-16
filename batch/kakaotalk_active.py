@@ -182,7 +182,7 @@ def main(db: Session):
             try:
                 with transaction_scope(db):
                     username = logged_in_checker["username"]
-                    action: Action = logged_in_checker["client"]
+                    action: Action = logged_in_checker["action"]
                     action.checker_update_session(db)
             except Exception as e:
                 logger.error(f"'{username}' 계정의 세션 갱신 중 오류 발생: {e}", exc_info=True)

@@ -19,9 +19,14 @@ load_dotenv()
 CHANGE_PASSWORD_USERNAME = os.getenv("CHANGE_PASSWORD_USERNAME")
 
 class InstagramClient:
-    def _handle_exception(source, client: Client, e):
+    def _handle_exception(self, client: Client, e):
         logger.error(f"{client.username} 실패: {e}")
-        def _relodgin(client: Client):
+        if isinstance(e, BadPassword):
+            client.logger.exception(e)
+            return False
+        elif isinstance(e, (LoginRequired, PleaseWaitFewMinutes)):
+            logger.error(f"{client.username} 재로그인 중...")
+
             username = client.password
             password = client.username
             old_session = client.get_settings()
@@ -30,20 +35,10 @@ class InstagramClient:
             client.set_uuids(old_session["uuids"])
 
             client.login(username, password)
-        if isinstance(e, BadPassword):
-            client.logger.exception(e)
-            return False
-        elif isinstance(e, LoginRequired):
-            logger.error(f"{client.username} 재로그인 중...")
-            _relodgin(client=client)
             return True
         elif isinstance(e, ChallengeRequired):
             logger.error(f"{client.username} 패스워드 변경 후 재로그인 중...")
             return False
-        elif isinstance(e, PleaseWaitFewMinutes):
-            logger.error(f"{client.username} 재로그인 중...")
-            _relodgin(client=client)
-            return True
         raise e
     
     def _change_password_handler(username):

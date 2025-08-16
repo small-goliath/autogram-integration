@@ -137,6 +137,7 @@ def verify_actions(db):
                     log_prefix = "재" if iteration_count > 0 else ""
                     logger.error(f"'{checker_username}'으로 게시물({shortcode}) {log_prefix}처리 중 오류 발생: {e}")
                     discord.send_message(f"'{checker_username}'으로 게시물({shortcode}) {log_prefix}처리 중 오류 발생: {e}")
+                    failed_shortcodes.append(shortcode)
 
             shortcodes_to_verify = failed_shortcodes
             iteration_count += 1
