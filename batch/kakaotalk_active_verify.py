@@ -1,29 +1,24 @@
 import logging
 import logging.config
-import re
 import sys
 from typing import List
 
-from instagrapi import Client
 from dotenv import load_dotenv
+from instagrapi.types import Comment, Media
 
-from batch import init_checker
+from batch import util
+from batch.action_support import Action
 from batch.kakaotalk_parsing import parsing
 from batch.notification import Discord
 from batch.util import sleep_to_log
 from core.db_transaction import with_session
 from core.entities import UserActionVerification
-from core.service import (checkers_service, instagram_login_service, users_service, verification_service)
+from core.service import (checkers_service, instagrapi_login_service, users_service, verification_service)
 from core.service.models import CheckerDetail, KakaoTalk, UserDetail
 
 load_dotenv()
 logging.config.fileConfig('batch/logging.conf', disable_existing_loggers=False)
 logger = logging.getLogger(__name__)
-
-def get_shortcode_from_link(link: str) -> str | None:
-    """Instagram 링크에서 shortcode를 추출합니다."""
-    match = re.search(r"/(p|reel)/([^/]+)", link)
-    return match.group(2) if match else None
 
 @with_session
 def verify_actions(db):
@@ -51,11 +46,12 @@ def verify_actions(db):
             sys.exit(1)
 
         # 3. checker 계정으로 로그인 시도
-        logged_in_checkers: List[dict[str, Client | str]] = []
+        logged_in_checkers: List[dict[str, Action | str]] = []
         for checker in checkers:
             try:
-                cl = instagram_login_service.login_with_session(checker.username, checker.session)
-                logged_in_checkers.append({'client': cl, 'username': checker.username})
+                cl = instagrapi_login_service.login_with_session(checker.username, checker.session)
+                action: Action = Action(cl=cl)
+                logged_in_checkers.append({'action': action, 'username': checker.username})
             except Exception as e:
                 logger.error(f" checker 계정 '{checker.username}'으로 로그인 실패: {e}")
                 continue
@@ -77,9 +73,9 @@ def verify_actions(db):
         # 5. 댓글 검증
         num_checkers = len(logged_in_checkers)
         posts_by_shortcode = {
-            get_shortcode_from_link(p.link): p
+            util.get_shortcode_from_link(p.link): p
             for p in kakaotalk_posts
-            if get_shortcode_from_link(p.link)
+            if util.get_shortcode_from_link(p.link)
         }
         shortcodes_to_verify = list(posts_by_shortcode.keys())
 
@@ -97,17 +93,26 @@ def verify_actions(db):
 
                 checker_index = (i + iteration_count) % num_checkers
                 checker_info = logged_in_checkers[checker_index]
-                cl = checker_info['client']
+                action: Action = checker_info['action']
                 checker_username = checker_info['username']
 
                 try:
                     log_prefix = "재" if iteration_count > 0 else ""
                     logger.info(f"'{checker_username}'으로 {post_info.username}의 게시물 {log_prefix}검증 중: {post_info.link}")
-                    media_pk = cl.media_pk_from_code(shortcode)
-                    media_info = cl.media_info(media_pk)
+                    media_pk = action.media_pk(shortcode)
+                    media_info: Media = action.media_info(media_pk)
                     
-                    sleep_to_log()
-                    comments = cl.media_comments(media_pk, amount=0)
+                    comments: List[Comment] = []
+                    min_id = None
+                    while True:
+                        comments_chunk, next_min_id = action.media_comments_chunk(
+                            media_pk, max_amount=100, min_id=min_id
+                        )
+                        comments.extend(comments_chunk)
+                        if not next_min_id:
+                            break
+                        min_id = next_min_id
+                        sleep_to_log(1)
                     commenters = {comment.user.username for comment in comments}
 
                     for user in all_users:
@@ -129,9 +134,6 @@ def verify_actions(db):
                                 added_verifications.add(verification_key)
 
                 except Exception as e:
-                    if "challenge_required" in str(e) or "login_required" in str(e):
-                        init_checker.initialize()
-                        sleep_to_log()
                     log_prefix = "재" if iteration_count > 0 else ""
                     logger.error(f"'{checker_username}'으로 게시물({shortcode}) {log_prefix}처리 중 오류 발생: {e}")
                     discord.send_message(f"'{checker_username}'으로 게시물({shortcode}) {log_prefix}처리 중 오류 발생: {e}")

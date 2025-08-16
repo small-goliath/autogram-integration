@@ -2,20 +2,18 @@ import logging
 import logging.config
 import os
 import random
-import re
 import sys
 from typing import List
 import requests
 from sqlalchemy.orm import Session
-from instagrapi import Client
-from batch.init_checker import initialize
+from batch import util
+from batch.action_support import Action
 from batch.util import sleep_to_log
 from core.db_transaction import read_only_transaction_scope, transaction_scope, with_session
 from core.service import (
     checkers_service,
-    producers_service, 
-    producer_instagram_service, 
-    instagram_login_service
+    instagrapi_login_service,
+    producers_service
 )
 from batch import kakaotalk_parsing
 from batch.notification import Discord
@@ -26,11 +24,6 @@ from core.service.models import CheckerDetail, ProducerDetail
 load_dotenv()
 logging.config.fileConfig('batch/logging.conf', disable_existing_loggers=False)
 logger = logging.getLogger(__name__)
-
-def get_shortcode_from_link(link: str) -> str | None:
-    """Instagram 링크에서 shortcode를 추출합니다."""
-    match = re.search(r"/(p|reel)/([^/]+)", link)
-    return match.group(2) if match else None
 
 @with_session
 def main(db: Session):
@@ -43,8 +36,8 @@ def main(db: Session):
     COMMENT_API_URL = os.getenv("COMMENT_API_URL")
 
     try:
-        logged_in_producers: List[dict[str, Client | str]] = []
-        logged_in_checkers: List[dict[str, Client | str]] = []
+        logged_in_producers: List[dict[str, Action | str]] = []
+        logged_in_checkers: List[dict[str, Action | str]] = []
         with read_only_transaction_scope(db):
             # producer 계정 정보 조회
             producers: List[ProducerDetail] = producers_service.get_producers(db)
@@ -56,8 +49,10 @@ def main(db: Session):
             # producer 계정으로 로그인 시도
             for producer in producers:
                 try:
-                    producer_cl = producer_instagram_service.login_with_session_producer(producer.username, producer.session)
-                    logged_in_producers.append({'client': producer_cl, 'username': producer.username})
+                    
+                    producer_cl = instagrapi_login_service.login_with_session(producer.username, producer.session)
+                    action: Action = Action(cl=producer_cl)
+                    logged_in_producers.append({'action': action, 'username': producer.username})
                 except Exception as e:
                     logger.error(f" producer 계정 '{producer.username}'으로 로그인 실패: {e}")
                     continue
@@ -77,8 +72,9 @@ def main(db: Session):
             # checker 계정으로 로그인 시도
             for checker in checkers:
                 try:
-                    cl = instagram_login_service.login_with_session(checker.username, checker.session)
-                    logged_in_checkers.append({'client': cl, 'username': checker.username})
+                    cunsumer_cl = instagrapi_login_service.login_with_session(checker.username, checker.session)
+                    action: Action = Action(cl=cunsumer_cl)
+                    logged_in_checkers.append({'action': action, 'username': checker.username})
                 except Exception as e:
                     logger.error(f" checker 계정 '{checker.username}'으로 로그인 실패: {e}")
                     continue
@@ -100,9 +96,8 @@ def main(db: Session):
         num_checkers = len(logged_in_checkers)
         for i, target in enumerate(targets):
             try:
-                shortcode = get_shortcode_from_link(target.link)
+                shortcode = util.get_shortcode_from_link(target.link)
                 if not shortcode:
-                    logger.warning(f"잘못된 URL입니다: {target.link}")
                     continue
 
                 logger.info(f"게시물 처리 중: {target.link}")
@@ -114,22 +109,17 @@ def main(db: Session):
                 for j in range(num_checkers):
                     checker_index = (i + j) % num_checkers
                     checker_info = logged_in_checkers[checker_index]
-                    cl = checker_info['client']
+                    action: Action = checker_info['action']
                     checker_username = checker_info['username']
                     try:
                         logger.info(f"'{checker_username}' 계정으로 media_info 조회 시도: {target.link}")
-                        media_pk = cl.media_pk_from_code(shortcode)
-                        media_info = cl.media_info(media_pk)
+                        media_pk = action.media_pk(shortcode)
+                        media_info = action.media_info(media_pk)
                         logger.info(f"'{checker_username}' 계정으로 media_info 조회 성공.")
                         break
                     except Exception as e:
                         last_exception = e
-                        if "challenge_required" in str(e) or "login_required" in str(e):
-                            initialize()
-                            sleep_to_log()
-                            continue
                         logger.warning(f"'{checker_username}' 계정으로 media_info 조회 실패: {e}. 다른 checker로 재시도합니다.")
-                        sleep_to_log(10)
                         continue
                 
                 if not media_info:
@@ -156,18 +146,18 @@ def main(db: Session):
                 random.shuffle(comment_texts)
                 logger.info(f"게시물 {shortcode}에 모든 producer가 좋아요 및 댓글을 작성합니다.")
                 for producer_info in logged_in_producers:
-                    producer_cl = producer_info['client']
+                    action = producer_info['action']
                     producer_username = producer_info['username']
                     if producer_username == target.username:
                         continue
                     
                     try:
                         logger.info(f"'{producer_username}' 계정으로 좋아요 및 댓글 작성 시도.")
-                        producer_cl.media_like(media_pk)
-                        sleep_to_log()
-                        producer_cl.media_comment(media_pk, comment_texts.pop())
+                        action.media_like(media_pk)
+                        sleep_to_log(1)
+                        action.media_comment(media_pk, comment_texts.pop())
                         logger.info(f"'{producer_username}' 계정으로 좋아요 및 댓글 작성 완료.")
-                        sleep_to_log()
+                        sleep_to_log(10)
                     except IndexError as e:
                             logger.error(f"댓글이 모자랍니다: {e}")
                     except Exception as e:
@@ -178,26 +168,22 @@ def main(db: Session):
                 logger.error(f"게시물 처리 중 오류 발생 ({target.link}): {e}", exc_info=True)
                 continue
 
-        logger.info("모든 작업 완료 후 producer 세션을 갱신합니다.")
         for producer_info in logged_in_producers:
             try:
                 with transaction_scope(db):
                     username = producer_info["username"]
-                    client: Client = producer_info["client"]
-                    settings = client.get_settings()
-                    producers_service.update_producer_session(db, username, settings)
+                    action: Action = producer_info["action"]
+                    action.producer_update_session(db)
             except Exception as e:
                 logger.error(f"'{username}' 계정의 세션 갱신 중 오류 발생: {e}", exc_info=True)
                 continue
 
-        logger.info("모든 작업 완료 후 checker 세션을 갱신합니다.")
         for logged_in_checker in logged_in_checkers:
             try:
                 with transaction_scope(db):
                     username = logged_in_checker["username"]
-                    client: Client = logged_in_checker["client"]
-                    settings = client.get_settings()
-                    checkers_service.update_session(db, username, settings)
+                    action: Action = logged_in_checker["client"]
+                    action.checker_update_session(db)
             except Exception as e:
                 logger.error(f"'{username}' 계정의 세션 갱신 중 오류 발생: {e}", exc_info=True)
                 continue

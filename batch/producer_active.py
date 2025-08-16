@@ -3,25 +3,21 @@ import logging.config
 import os
 import random
 import sys
-from itertools import islice
 from typing import List
 
-from instagrapi.types import Comment
-from instaloader import Instaloader, Post, PostComment, Profile
+from instagrapi.types import Comment, Media
 import requests
 from dotenv import load_dotenv
-from instagrapi import Client
 from sqlalchemy.orm import Session
 
-from batch import init_checker
+from batch.action_support import Action
 from batch.notification import Discord
 from batch.util import sleep_to_log
 from core.db_transaction import read_only_transaction_scope, transaction_scope, with_session
 from core.service import (
     checkers_service,
     consumer_service,
-    instagram_login_service,
-    producer_instagram_service,
+    instagrapi_login_service,
     producers_service,
 )
 from core.service.models import CheckerDetail, ConsumerDetail, ProducerDetail
@@ -43,8 +39,8 @@ def main(db: Session):
     INSTALOADER_SESSION_PRE_PATH = os.getenv("INSTALOADER_SESSION_PRE_PATH")
 
     try:
-        logged_in_producers: List[dict[str, Client | str]] = []
-        logged_in_checkers: List[dict[str, Client | str]] = []
+        logged_in_producers: List[dict[str, Action | str]] = []
+        logged_in_checkers: List[dict[str, Action | str]] = []
         consumers: List[ConsumerDetail] = []
         with read_only_transaction_scope(db):
             producers: List[ProducerDetail] = producers_service.get_producers(db)
@@ -55,13 +51,10 @@ def main(db: Session):
 
             for producer in producers:
                 try:
-                    producer_cl = (
-                        producer_instagram_service.login_with_session_producer(
-                            producer.username, producer.session
-                        )
-                    )
+                    producer_cl = instagrapi_login_service.login_with_session(producer.username, producer.session)
+                    action: Action = Action(cl=producer_cl)
                     logged_in_producers.append(
-                        {"client": producer_cl, "username": producer.username}
+                        {"action": action, "username": producer.username}
                     )
                 except Exception as e:
                     logger.error(f" producer 계정 '{producer.username}'으로 로그인 실패: {e}")
@@ -80,17 +73,12 @@ def main(db: Session):
 
             for checker in checkers:
                 try:
-                    cl = instagram_login_service.login_with_session(
-                        checker.username, checker.session
-                    )
+                    checker_cl = instagrapi_login_service.login_with_session(checker.username, checker.session)
+                    action: Action = Action(cl=checker_cl)
                     logged_in_checkers.append(
-                        {"client": cl, "username": checker.username}
+                        {"action": action, "username": checker.username}
                     )
                 except Exception as e:
-                    if "세션이 만료되었거나 유효하지 않을 수 있습니다." in str(e):
-                        logger.warning(f"{e}: 모든 checker를 다시 로그인합니다...")
-                        init_checker.initialize()
-                        sleep_to_log()
                     logger.error(f" checker 계정 '{checker.username}'으로 로그인 실패: {e}")
                     continue
 
@@ -108,35 +96,21 @@ def main(db: Session):
         num_checkers = len(logged_in_checkers)
 
         for i, consumer in enumerate(consumers):
-            # Checker를 번갈아가며 consumer의 최근 게시물 4개 가져오기
-            medias = []
+            # Checker를 번갈아가며 consumer의 최근 게시물 5개 가져오기
+            medias: List[Media] = []
             last_exception = None
             for j in range(num_checkers):
                 checker_index = (i + j) % num_checkers
                 checker_info = logged_in_checkers[checker_index]
-                cl = checker_info["client"]
+                action: Action = checker_info["action"]
                 checker_username = checker_info["username"]
                 try:
-                    logger.info(
-                        f"'{checker_username}' 계정으로 '{consumer.username}'의 최근 게시물 조회 시도."
-                    )
-                    user_id = cl.user_id_from_username(username=consumer.username)
-                    medias = cl.user_medias(user_id=user_id, amount=4, sleep=3)
-                    logger.info(
-                        f"'{checker_username}' 계정으로 '{consumer.username}'의 게시물 {len(medias)}개 조회 성공."
-                    )
+                    user_id = action.user_id_from_username(username=consumer.username)
+                    medias = action.user_medias(user_id=user_id, amount=5, sleep=3)
                     break
                 except Exception as e:
-                    if "challenge_required" in str(e) or "login_required" in str(e):
-                        logger.warning(f"재로그인합니다: {e}")
-                        init_checker.initialize()
-                        sleep_to_log()
-                        continue
                     last_exception = e
-                    logger.warning(
-                        f"'{checker_username}' 계정으로 '{consumer.username}'의 게시물 조회 실패: {e}. 다른 checker로 재시도합니다."
-                    )
-                    sleep_to_log(10)
+                    logger.warning(f"'{checker_username}' 계정으로 '{consumer.username}'의 게시물 조회 실패: {e}. 다른 checker로 재시도합니다.")
                     continue
 
             if not medias:
@@ -157,52 +131,34 @@ def main(db: Session):
                         for j in range(num_checkers):
                             checker_index = (i + j) % num_checkers
                             checker_info = logged_in_checkers[checker_index]
-                            checker_cl: Client = checker_info["client"]
+                            action: Action = checker_info["action"]
                             checker_username = checker_info["username"]
                             try:
-                                logger.info(
-                                    f"'{checker_username}' 계정으로 게시물 {media.code}의 댓글 목록 조회 시도."
-                                )
+                                logger.info(f"'{checker_username}' 계정으로 게시물 {media.code}의 댓글 목록 조회 시도.")
                                 comments: List[Comment] = []
                                 min_id = None
                                 while True:
-                                    (
-                                        comments_chunk,
-                                        next_min_id,
-                                    ) = checker_cl.media_comments_chunk(
+                                    comments_chunk, next_min_id = action.media_comments_chunk(
                                         media.pk, max_amount=100, min_id=min_id
                                     )
                                     comments.extend(comments_chunk)
                                     if not next_min_id:
                                         break
                                     min_id = next_min_id
-                                    sleep_to_log(10)
+                                    sleep_to_log(1)
                                 commenting_usernames = {
                                     c.user.username for c in comments
                                 }
-                                logger.info(
-                                    f"'{checker_username}' 계정으로 게시물 {media.code}의 기존 댓글 {len(commenting_usernames)}개 확인."
-                                )
+                                logger.info(f"'{checker_username}' 계정으로 게시물 {media.code}의 기존 댓글 {len(commenting_usernames)}개 확인.")
                                 comments_fetched = True
                                 break
                             except Exception as e:
-                                if "challenge_required" in str(e) or "login_required" in str(e):
-                                    logger.warning(f"재로그인합니다: {e}")
-                                    init_checker.initialize()
-                                    sleep_to_log()
-                                    continue
                                 last_comment_exception = e
-                                logger.warning(
-                                    f"'{checker_username}' 계정으로 게시물 {media.code}의 댓글을 가져오는 데 실패했습니다: {e}. 다른 checker로 재시도합니다."
-                                )
+                                logger.warning(f"'{checker_username}' 계정으로 게시물 {media.code}의 댓글을 가져오는 데 실패했습니다: {e}. 다른 checker로 재시도합니다.")
                                 continue
-                            finally:
-                                sleep_to_log()
 
                         if not comments_fetched:
-                            logger.warning(
-                                f"게시물 {media.code}의 댓글을 가져오는 데 모든 checker가 실패했습니다. 최종 오류: {last_comment_exception}. 댓글 작성을 건너뜁니다."
-                            )
+                            logger.warning(f"게시물 {media.code}의 댓글을 가져오는 데 모든 checker가 실패했습니다. 최종 오류: {last_comment_exception}. 댓글 작성을 건너뜁니다.")
                             continue
 
                     # 댓글 생성 API 호출
@@ -231,7 +187,7 @@ def main(db: Session):
                     logger.info(f"게시물 {media.code}에 모든 producer가 좋아요 및 댓글을 작성합니다.")
                     for producer_info in logged_in_producers:
                         producer_username = producer_info["username"]
-                        producer_cl = producer_info["client"]
+                        action = producer_info["action"]
                         if (
                             producer_username == media.user.username
                             or producer_username in commenting_usernames
@@ -240,11 +196,11 @@ def main(db: Session):
 
                         try:
                             logger.info(f"'{producer_username}' 계정으로 좋아요 및 댓글 작성 시도.")
-                            producer_cl.media_like(media.pk)
-                            sleep_to_log()
-                            producer_cl.media_comment(media.pk, comment_texts.pop())
+                            action.media_like(media.pk)
+                            sleep_to_log(1)
+                            action.media_comment(media.pk, comment_texts.pop())
                             logger.info(f"'{producer_username}' 계정으로 좋아요 및 댓글 작성 완료.")
-                            sleep_to_log()
+                            sleep_to_log(10)
                         except IndexError as e:
                             logger.error(f"댓글이 모자랍니다: {e}")
                         except Exception as e:
@@ -265,14 +221,12 @@ def main(db: Session):
         logger.critical(f"producer 배치 실행 중 심각한 오류 발생: {e}", exc_info=True)
         discord.send_message(message=f"producer 배치 실패: {e}")
 
-    logger.info("신규 피드에 대한 댓글 작업 완료 후 checker 세션을 갱신합니다.")
     for logged_in_checker in logged_in_checkers:
         try:
             with transaction_scope(db):
                 username = logged_in_checker["username"]
-                client: Client = logged_in_checker["client"]
-                settings = client.get_settings()
-                checkers_service.update_session(db, username, settings)
+                action: Action = logged_in_checker["action"]
+                action.checker_update_session(db)
         except Exception as e:
             logger.error(f"'{username}' 계정의 세션 갱신 중 오류 발생: {e}", exc_info=True)
             continue
@@ -467,14 +421,12 @@ def main(db: Session):
     #     logger.critical(f"producer 대댓글 작업 중 심각한 오류 발생: {e}", exc_info=True)
     #     discord.send_message(message=f"producer 대댓글 작업 실패: {e}")
 
-    logger.info("모든 작업 완료 후 producer 세션을 갱신합니다.")
     for producer_info in logged_in_producers:
         try:
             with transaction_scope(db):
                 username = producer_info["username"]
-                client: Client = producer_info["client"]
-                settings = client.get_settings()
-                producers_service.update_producer_session(db, username, settings)
+                action: Action = producer_info["action"]
+                action.producer_update_session(db)
         except Exception as e:
             logger.error(f"'{username}' 계정의 세션 갱신 중 오류 발생: {e}", exc_info=True)
             continue

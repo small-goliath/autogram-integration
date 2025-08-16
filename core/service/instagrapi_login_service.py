@@ -1,6 +1,4 @@
 import logging
-import os
-import json
 import re
 from dotenv import load_dotenv
 from sqlalchemy.orm import Session
@@ -16,7 +14,7 @@ logger = logging.getLogger(__name__)
 # 2FA 처리를 위한 임시 클라이언트 저장소
 active_clients = {}
 
-def login(db: Session, username: str, password: str) -> None:
+def login(db: Session, username: str, password: str) -> Client:
     logger.info(f"{username} 로그인을 시도합니다.")
     try:
         instagram_client = InstagramClient(username=username, password=password)
@@ -25,6 +23,8 @@ def login(db: Session, username: str, password: str) -> None:
         settings = instagram_client.cl.get_settings()
         instagram_session_service.save_session(db, username, settings)
         logger.info(f"{username} 로그인에 성공하고 세션을 저장했습니다.")
+
+        return instagram_client.cl
 
     except Instagram2FAError:
         logger.warning(f"{username}에 2FA가 필요합니다.")
@@ -45,7 +45,7 @@ def login(db: Session, username: str, password: str) -> None:
                 error_message = "체크포인트가 필요합니다. 브라우저를 통해 로그인하여 해결하세요. (인증 URL을 가져올 수 없습니다)"
         raise InstagramLoginError(error_message) from e
 
-def login_2fa(db: Session, username: str, verification_code: str) -> None:
+def login_2fa(db: Session, username: str, verification_code: str) -> Client:
     logger.info(f"{username}의 2FA 로그인을 시도합니다.")
     client_info = active_clients.get(username)
 
@@ -63,6 +63,8 @@ def login_2fa(db: Session, username: str, verification_code: str) -> None:
         
         del active_clients[username]
 
+        return instagram_client.cl
+
     except LoginError as e:
         logger.error(f"{username}의 2FA 완료 실패: {e}", exc_info=True)
         if username in active_clients:
@@ -77,30 +79,11 @@ def login_2fa(db: Session, username: str, verification_code: str) -> None:
 def login_with_session(username: str, session: str) -> Client:
     logger.info(f"{username} 세션으로 로그인을 시도합니다.")
     try:
-        cl = Client()
-        settings = json.loads(session)
-        cl.set_settings(settings)
-        cl.login_by_sessionid(cl.sessionid)
-        cl.country = "KR"
-        cl.timezone_offset = 32400
-        cl.locale = "ko_KR"
-        cl.country_code = 82
-        # cl.user_agent = "Instagram 76.0.0.15.395 (iPhone15,2; iOS 10_0_2; ko_KR; ko-KR; scale=2.61; 1080x1920) AppleWebKit/420+"
-        # cl.device_settings = {
-        #     "app_version": "269.0.0.18.75",
-        #     "android_version": 26,
-        #     "android_release": "8.0.0",
-        #     "dpi": "480dpi",
-        #     "resolution": "1080x1920",
-        #     "manufacturer": "iPhone 15 Pro",
-        #     "device": "devitron",
-        #     "model": "iPhone 15 Pro",
-        #     "cpu": "qcom",
-        #     "version_code": "314665256",
-        # }
+        instagram_client = InstagramClient(username=username, session=session)
+        instagram_client.login_with_session()
 
         logger.info(f"{username} 세션으로 로그인 성공.")
-        return cl
+        return instagram_client.cl
     except Exception as e:
         logger.error(f"{username} 세션으로 로그인 실패: {e}", exc_info=True)
         raise InstagramLoginError("세션으로 로그인하지 못했습니다. 세션이 만료되었거나 유효하지 않을 수 있습니다.") from e

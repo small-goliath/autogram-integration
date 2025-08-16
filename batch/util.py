@@ -2,6 +2,7 @@ import locale
 from datetime import datetime, timedelta, timezone
 import logging
 import os
+import re
 from time import sleep
 from typing import List
 from dotenv import load_dotenv
@@ -31,3 +32,10 @@ def sleep_to_log(sec: int = 0):
         sec = random.randint(150, 200)
     logger.info(f"{sec}초 중단.")
     sleep(sec)
+
+def get_shortcode_from_link(link: str) -> str | None:
+    match = re.search(r"/(p|reel)/([^/]+)", link)
+    shortcode =  match.group(2) if match else None
+    if not shortcode:
+        logger.warning(f"'{link}'에서 shortcode를 추출할 수 없습니다.")
+    return shortcode

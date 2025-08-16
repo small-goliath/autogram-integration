@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from core.database import checker_db
 from core.entities import Checker
 from core.exceptions import AlreadyCreatedError, InstagramLoginError
-from core.service import instagram_login_service, instagram_session_service
+from core.service import instagram_session_service, instagrapi_login_service
 from core.service.models import CheckerDetail
 
 logger = logging.getLogger(__name__)
@@ -21,7 +21,7 @@ def register_checker(db: Session, username: str, password: str) -> CheckerDetail
     if checker_db.get(db, username):
         raise AlreadyCreatedError(f"체커 계정 {username}이(가) 이미 존재합니다.")
 
-    instagram_login_service.login(db, username, password)
+    instagrapi_login_service.login(db, username, password)
     session_string = instagram_session_service.get_session_string(db, username)
     
     if not session_string:
@@ -36,7 +36,7 @@ def complete_2fa_and_register_checker(db: Session, username: str, verification_c
     if checker_db.get(db, username):
         raise AlreadyCreatedError(f"체커 계정 {username}이(가) 이미 존재합니다.")
 
-    instagram_login_service.login_2fa(db, username, verification_code)
+    instagrapi_login_service.login_2fa(db, username, verification_code)
     session_string = instagram_session_service.get_session_string(db, username)
 
     if not session_string:

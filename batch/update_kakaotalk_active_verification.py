@@ -1,26 +1,20 @@
 import logging
 import logging.config
-import re
 import sys
 from typing import List
 from collections import defaultdict
 from instagrapi.types import Comment
 from sqlalchemy.orm import Session
-from instagrapi import Client
-from batch import init_checker
+from batch import util
+from batch.action_support import Action
 from batch.util import sleep_to_log
 from core.db_transaction import transaction_scope, with_session
-from core.service import checkers_service, instagram_login_service, verification_service
+from core.service import checkers_service, instagrapi_login_service, verification_service
 from batch.notification import Discord
 from core.service.models import CheckerDetail, VerificationDetail
 
 logging.config.fileConfig('batch/logging.conf', disable_existing_loggers=False)
 logger = logging.getLogger(__name__)
-
-def get_shortcode_from_link(link: str) -> str | None:
-    """Instagram 링크에서 shortcode를 추출합니다."""
-    match = re.search(r"/(p|reel)/([^/]+)", link)
-    return match.group(2) if match else None
 
 @with_session
 def verify_actions(db: Session):
@@ -34,11 +28,12 @@ def verify_actions(db: Session):
             discord.send_message("활동 검증에 사용할 checker 계정이 등록되어 있지 않습니다.")
             sys.exit(1)
         
-        logged_in_checkers: List[dict[str, Client | str]] = []
+        logged_in_checkers: List[dict[str, Action | str]] = []
         for checker in checkers:
             try:
-                cl = instagram_login_service.login_with_session(checker.username, checker.session)
-                logged_in_checkers.append({'client': cl, 'username': checker.username})
+                cl = instagrapi_login_service.login_with_session(checker.username, checker.session)
+                action = Action(cl=cl)
+                logged_in_checkers.append({'action': action, 'username': checker.username})
             except Exception as e:
                 logger.error(f" checker 계정 '{checker.username}'으로 로그인 실패: {e}")
                 continue
@@ -64,36 +59,33 @@ def verify_actions(db: Session):
             link_processed = False
             last_exception = None
             
-            shortcode = get_shortcode_from_link(link)
+            shortcode = util.get_shortcode_from_link(link)
             if not shortcode:
-                logger.warning(f"'{link}'에서 shortcode를 추출할 수 없습니다.")
                 continue
 
             for j in range(num_checkers):
                 checker_index = (i + j) % num_checkers
                 checker_info = logged_in_checkers[checker_index]
-                cl = checker_info['client']
+                action = checker_info['action']
                 checker_username = checker_info['username']
                 
                 try:
                     logger.info(f"'{checker_username}' 계정으로 '{link}' 링크에 대한 {len(user_verifications)}개의 활동을 검증합니다.")
                     with transaction_scope(db):
-                        media_pk = cl.media_pk_from_code(shortcode)
+                        media_pk = action.media_pk(shortcode)
                         
                         comments: List[Comment] = []
                         min_id = None
                         while True:
-                            comments_chunk, next_min_id = cl.media_comments_chunk(
+                            comments_chunk, next_min_id = action.media_comments_chunk(
                                 media_pk, max_amount=100, min_id=min_id
                             )
                             comments.extend(comments_chunk)
                             if not next_min_id:
                                 break
                             min_id = next_min_id
-                            sleep_to_log(10)
+                            sleep_to_log(1)
                         commenters = {comment.user.username for comment in comments}
-                        
-                        sleep_to_log()
 
                         for verification in user_verifications:
                             if verification.username in commenters:
@@ -104,11 +96,6 @@ def verify_actions(db: Session):
                     break
 
                 except Exception as e:
-                    last_exception = e
-                    if "challenge_required" in str(e) or "login_required" in str(e):
-                        init_checker.initialize()
-                        sleep_to_log()
-                        continue
                     logger.warning(f"'{checker_username}' 계정으로 '{link}' 링크 처리 중 오류 발생: {e}. 다른 checker로 재시도합니다.")
                     continue
             
@@ -118,16 +105,12 @@ def verify_actions(db: Session):
                 discord.send_message(error_message)
                 continue
 
-        logger.info("모든 작업 완료 후 checker 세션을 갱신합니다.")
         for logged_in_checker in logged_in_checkers:
             with transaction_scope(db):
                 try:
-                    username = logged_in_checker["username"]
-                    client: Client = logged_in_checker["client"]
-                    settings = client.get_settings()
-                    checkers_service.update_session(db, username, settings)
+                    action: Action = logged_in_checker["action"]
+                    action.checker_update_session(db)
                 except Exception as e:
-                    logger.error(f"'{username}' 계정의 세션 갱신 중 오류 발생: {e}", exc_info=True)
                     continue
 
         summary = "카카오톡 활동 검증 배치 완료"
