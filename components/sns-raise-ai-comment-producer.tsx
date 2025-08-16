@@ -124,6 +124,12 @@ export default function SnsRaiseAICommentProducer() {
   return (
     <div className="bg-card p-6 rounded-lg shadow-md">
       <h2 className="text-2xl font-semibold text-primary mb-4">신청하기</h2>
+      <div className="mb-4 p-3 border rounded-md text-sm">
+        <p className="font-bold">⚠️ 주의사항</p>
+        <p className="text-muted-foreground">
+          본 서비스는 베타 버전으로 운영 중입니다. 인스타그램의 보안 정책 강화로 인해, 서비스 이용 중 CAPTCHA 인증(문자 입력, 이미지 선택 등)이 요구될 수 있습니다. 경우에 따라 계정 재인증이 필요할 수도 있습니다.
+        </p>
+      </div>
       {!twoFactorRequired ? (
         <form onSubmit={handleLogin} className="space-y-4">
           <div>

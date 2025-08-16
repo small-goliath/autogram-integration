@@ -48,11 +48,13 @@ export const Navbar = () => {
       name: "[AI] 자동 댓글 받기 신청",
       href: "/sns-raise/ai-comment",
       count: consumerCount,
+      isBeta: true,
     },
     {
       name: "[AI] 자동 댓글 달기 신청",
       href: "/sns-raise/ai-comment-producer",
       count: producerCount,
+      isBeta: true,
     },
     { name: "인스타 언팔검색기", href: "/unfollow-checker" }
   ];
@@ -90,6 +92,11 @@ export const Navbar = () => {
               )}
             >
               {item.name}
+              {(item as any).isBeta && (
+                <span className="ml-2 bg-yellow-200 text-yellow-800 text-xs font-semibold px-2 py-0.5 rounded-full">
+                  Beta
+                </span>
+              )}
               {item.count !== undefined && item.count !== null && (
                 <span className="ml-2 bg-blue-500 text-white text-xs font-semibold px-2 py-1 rounded-full">
                   {item.count}명
