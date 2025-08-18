@@ -2,6 +2,7 @@ import logging
 import json
 import os
 import random
+import onetimepass as otp
 from dotenv import load_dotenv
 from instagrapi import Client
 from instagrapi.exceptions import (
@@ -17,27 +18,44 @@ from core.exceptions import Instagram2FAError, InstagramError, LoginError
 logger = logging.getLogger(__name__)
 load_dotenv()
 CHANGE_PASSWORD_USERNAME = os.getenv("CHANGE_PASSWORD_USERNAME")
+otps = {
+        "muscle.er": "EAEOKDFMCWCHR6MMJS2Q7F62YLAYHHNA",
+        "_doto.ri_": "CV2T7HTW77YHS77L4ZPNOQFAU7BWKYUG",
+        "protein.er": "QRE4RTBCKKLAVKFJMA673NVWZF7BQTGI",
+        "enca.re": "LAOKNBAUYHGZ72FPCERDX4OIQDOJJXHL",
+        "proscle.er": "LKIRS3CAM2XS3LFZ66JD4GLYM5M3BLEY"
+    }
+
+def get_OTP(username: str) -> str:
+    otp_num = otp.get_totp(otps[username])
+    logger.info(f"{username}의 otp는 {otp_num}입니다.")
+    return str(otp_num)
 
 class InstagramClient:
     def _handle_exception(self, client: Client, e):
-        logger.error(f"{client.username} 실패: {e}")
+        logger.info(f"{client.username} 예외 핸들러 실행 : {e}")
+
         if isinstance(e, BadPassword):
             client.logger.exception(e)
             return False
         elif isinstance(e, (LoginRequired, PleaseWaitFewMinutes)):
-            logger.error(f"{client.username} 재로그인 중...")
+            logger.info(f"{client.username}/{client.password} 재로그인 중...")
 
-            username = client.password
-            password = client.username
+            username = client.username
+            password = client.password
             old_session = client.get_settings()
 
             client.set_settings({})
             client.set_uuids(old_session["uuids"])
 
-            client.login(username, password)
-            return True
+            try:
+                client.login(username, password, verification_code=get_OTP(username))
+                client.get_notes()
+                return True
+            except:
+                return False
         elif isinstance(e, ChallengeRequired):
-            logger.error(f"{client.username} 패스워드 변경 후 재로그인 중...")
+            logger.info(f"{client.username} 패스워드 변경 후 재로그인 중...")
             return False
         raise e
     
@@ -47,6 +65,7 @@ class InstagramClient:
             pass
         chars = list("abcdefghijklmnopqrstuvwxyz1234567890!&£@#")
         password = "".join(random.sample(chars, 8))
+        logger.info(f"{username}의 패스워드를 {password}로 변경합니다.")
         return password
 
     def __init__(self, username: str, password: str = None, verification_code: str = None, session: str = None):
@@ -81,7 +100,7 @@ class InstagramClient:
         logger.info(f"{self.username} 세션으로 로그인을 시도합니다.")
         try:
             self.cl.set_settings(self.session)
-            self.cl.login(self.username, "temp")
+            self.cl.login(self.username, "DEhxhfL1004!")
         except TwoFactorRequired as e:
             raise Instagram2FAError("2단계 인증이 필요합니다.") from e
         except BadPassword as e:
