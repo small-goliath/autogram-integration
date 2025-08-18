@@ -77,3 +77,24 @@ def read_only_transaction_scope(session: Session):
     except Exception:
         session.rollback()
         raise
+
+@contextmanager
+def transactional():
+    session = SessionLocal()
+    try:
+        yield session
+        session.commit()
+    except Exception as e:
+        session.rollback()
+        raise
+    finally:
+        session.close()
+
+@contextmanager
+def read_only_transactional():
+    session = SessionLocal()
+    try:
+        yield session
+        session.rollback()
+    finally:
+        session.close()

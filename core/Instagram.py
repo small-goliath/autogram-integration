@@ -13,6 +13,7 @@ from instagrapi.exceptions import (
     LoginRequired,
     RateLimitError
 )
+from core.db_transaction import read_only_transactional, transaction_scope, transactional
 from core.exceptions import Instagram2FAError, InstagramError, LoginError
 from core.service import checkers_service
 from core.service.models import CheckerDetail
@@ -41,12 +42,13 @@ class InstagramClient:
             client.logger.exception(e)
             return False
         elif isinstance(e, (LoginRequired, PleaseWaitFewMinutes)):
-            logger.info(f"{client.username}/{client.password} 재로그인 중...")
-            checker: CheckerDetail = checkers_service.get_checker_by_username(client.username)
-            if not checker:
-                logger.info(f"{client.username}는 로그인할 수 없습니다...")
-                return False
+            with read_only_transactional() as db:
+                checker: CheckerDetail = checkers_service.get_checker_by_username(db, client.username)
+                if not checker:
+                    logger.info(f"{client.username}는 로그인할 수 없습니다...")
+                    return False
 
+            logger.info(f"{client.username}/{client.password} 재로그인 중...")
             username = client.username
             password = checker.pwd
             old_session = client.get_settings()
@@ -69,11 +71,12 @@ class InstagramClient:
         if username not in CHANGE_PASSWORD_USERNAME:
             logger.warning(f"{username} 계정은 패스워드를 변경하지 않습니다.")
             pass
-        chars = list("abcdefghijklmnopqrstuvwxyz1234567890!&£@#")
-        password = "".join(random.sample(chars, 8))
-        logger.info(f"{username}의 패스워드를 {password}로 변경합니다.")
-        checkers_service.update_password(username, password)
-        return password
+        with transactional() as db:
+            chars = list("abcdefghijklmnopqrstuvwxyz1234567890!&£@#")
+            password = "".join(random.sample(chars, 8))
+            logger.info(f"{username}의 패스워드를 {password}로 변경합니다.")
+            checkers_service.update_password(username, password)
+            return password
 
     def __init__(self, username: str, password: str = None, verification_code: str = None, session: str = None):
         self.cl = Client()
@@ -107,6 +110,12 @@ class InstagramClient:
         logger.info(f"{self.username} 세션으로 로그인을 시도합니다.")
         try:
             self.cl.set_settings(self.session)
+            with read_only_transactional() as db:
+                checker: CheckerDetail = checkers_service.get_checker_by_username(db, self.username)
+                if checker:
+                    self.cl.login(self.username, checker.pwd)
+                else:
+                    self.cl.login(self.username, "temp")
         except TwoFactorRequired as e:
             raise Instagram2FAError("2단계 인증이 필요합니다.") from e
         except BadPassword as e:
