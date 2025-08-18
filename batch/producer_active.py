@@ -191,15 +191,13 @@ def main(db: Session):
                             logger.error(f"댓글이 모자랍니다: {e}")
                         except Exception as e:
                             logger.error(
-                                f"'{producer_username}' 계정으로 게시물 처리 중 오류 발생 (https://www.instagram.com/p/{media.code}): {e}",
-                                exc_info=True,
+                                f"'{producer_username}' 계정으로 게시물 처리 중 오류 발생 (https://www.instagram.com/p/{media.code}): {e}"
                             )
                             continue
 
                 except Exception as e:
                     logger.error(
-                        f"게시물 처리 중 오류 발생 (https://www.instagram.com/p/{media.code}): {e}",
-                        exc_info=True,
+                        f"게시물 처리 중 오류 발생 (https://www.instagram.com/p/{media.code}): {e}"
                     )
                     continue
 
