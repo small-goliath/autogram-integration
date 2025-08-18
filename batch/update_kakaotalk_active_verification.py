@@ -118,7 +118,7 @@ def verify_actions(db: Session):
         discord.send_message(summary)
 
     except Exception as e:
-        logger.error(f"배치 실행 중 심각한 오류 발생: {e}", exc_info=True)
+        logger.error(f"배치 실행 중 심각한 오류 발생: {e}")
         discord.send_message(f"배치 실행 중 오류 발생: {e}")
 
 if __name__ == "__main__":

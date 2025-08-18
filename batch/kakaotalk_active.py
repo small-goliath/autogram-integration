@@ -178,7 +178,7 @@ def main(db: Session):
                     action: Action = producer_info["action"]
                     action.producer_update_session(db)
             except Exception as e:
-                logger.error(f"'{username}' 계정의 세션 갱신 중 오류 발생: {e}", exc_info=True)
+                logger.error(f"'{username}' 계정의 세션 갱신 중 오류 발생: {e}")
                 continue
 
         for logged_in_checker in logged_in_checkers:
@@ -188,11 +188,11 @@ def main(db: Session):
                     action: Action = logged_in_checker["action"]
                     action.checker_update_session(db)
             except Exception as e:
-                logger.error(f"'{username}' 계정의 세션 갱신 중 오류 발생: {e}", exc_info=True)
+                logger.error(f"'{username}' 계정의 세션 갱신 중 오류 발생: {e}")
                 continue
 
     except Exception as e:
-        logger.critical(f"배치 실행 중 심각한 오류 발생: {e}", exc_info=True)
+        logger.critical(f"배치 실행 중 심각한 오류 발생: {e}")
         discord.send_message(message=f"카카오톡 활성화 배치 실패: {e}")
 
     logger.info("카카오톡 채팅방 대화내용으로부터 일괄 댓글 및 좋아요 배치를 종료합니다.")

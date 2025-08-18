@@ -31,7 +31,7 @@ def update_session(db: Session, username: str, session_string: str) -> Checker |
         db.refresh(db_checker)
     return db_checker
 
-def update_session(db: Session, username: str, password: str) -> Checker | None:
+def update_password(db: Session, username: str, password: str) -> Checker | None:
     db_checker = db.query(Checker).filter(Checker.username == username).first()
     if db_checker:
         db_checker.pwd = password

@@ -139,7 +139,7 @@ def verify_actions(db):
         discord.send_message("카카오톡 활동 검증 배치를 성공적으로 완료했습니다.")
 
     except Exception as e:
-        logger.error(f"배치 실행 중 심각한 오류 발생: {e}", exc_info=True)
+        logger.error(f"배치 실행 중 심각한 오류 발생: {e}")
         discord.send_message(f"배치 실행 중 심각한 오류 발생: {e}")
         sys.exit(1)
 

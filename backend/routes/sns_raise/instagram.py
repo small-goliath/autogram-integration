@@ -23,10 +23,10 @@ async def login(
         logger.warning(f"{request.username}에 2FA가 필요합니다")
         return MessageResponse(message="2FA 코드가 필요합니다.", two_factor_required=True)
     except InstagramLoginError as e:
-        logger.error(f"{request.username} 로그인 실패: {e}", exc_info=True)
+        logger.error(f"{request.username} 로그인 실패: {e}")
         raise HTTPException(status_code=401, detail=str(e))
     except Exception as e:
-        logger.error(f"{request.username} 로그인 중 예상치 못한 오류 발생: {e}", exc_info=True)
+        logger.error(f"{request.username} 로그인 중 예상치 못한 오류 발생: {e}")
         raise HTTPException(status_code=500, detail="예상치 못한 서버 오류가 발생했습니다.")
 
 @router.post("/login/2fa", response_model=MessageResponse)
@@ -39,10 +39,10 @@ async def login_2fa(
         instagrapi_login_service.login_2fa(db, request.username, request.verification_code)
         return MessageResponse(message=f"2FA로 성공적으로 로그인했습니다: {request.username}")
     except InstagramLoginError as e:
-        logger.error(f"{request.username}의 2FA 로그인 실패: {e}", exc_info=True)
+        logger.error(f"{request.username}의 2FA 로그인 실패: {e}")
         raise HTTPException(status_code=401, detail=str(e))
     except Exception as e:
-        logger.error(f"{request.username}의 2FA 로그인 중 예상치 못한 오류 발생: {e}", exc_info=True)
+        logger.error(f"{request.username}의 2FA 로그인 중 예상치 못한 오류 발생: {e}")
         raise HTTPException(status_code=500, detail="예상치 못한 서버 오류가 발생했습니다.")
 
 @router.post("/logout")

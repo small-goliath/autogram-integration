@@ -15,7 +15,7 @@ def get_verifications_service(db: Session) -> List[VerificationDetail]:
         logger.info(f"{len(verifications)}개의 인증을 반환합니다.")
         return [VerificationDetail.from_orm(v) for v in verifications]
     except Exception as e:
-        logger.error(f"SNS 키우기 인증 목록을 가져오는데 실패했습니다: {e}", exc_info=True)
+        logger.error(f"SNS 키우기 인증 목록을 가져오는데 실패했습니다: {e}")
         raise
 
 def get_verifications(db: Session, username: str) -> List[VerificationDetail]:
@@ -25,7 +25,7 @@ def get_verifications(db: Session, username: str) -> List[VerificationDetail]:
         logger.info(f"{len(verifications)}개의 인증을 반환합니다.")
         return [VerificationDetail.from_orm(v) for v in verifications]
     except Exception as e:
-        logger.error(f"SNS 키우기 인증 목록을 가져오는데 실패했습니다: {e}", exc_info=True)
+        logger.error(f"SNS 키우기 인증 목록을 가져오는데 실패했습니다: {e}")
         raise
 
 
@@ -44,5 +44,5 @@ def delete_verification(db: Session, verification_id: int) -> bool:
             logger.warning(f"{verification_id}번 인증을 찾지 못해 삭제하지 못했습니다.")
         return result
     except Exception as e:
-        logger.error(f"SNS 키우기 인증을 삭제하는데 실패했습니다: {e}", exc_info=True)
+        logger.error(f"SNS 키우기 인증을 삭제하는데 실패했습니다: {e}")
         raise

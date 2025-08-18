@@ -40,7 +40,7 @@ class Action:
         try:
             checkers_service.update_session(db, self.cl.username, self.cl.get_settings())
         except Exception as e:
-            logger.error(f"'{self.cl.username}' 계정의 세션 갱신 중 오류 발생: {e}", exc_info=True)
+            logger.error(f"'{self.cl.username}' 계정의 세션 갱신 중 오류 발생: {e}")
             raise
 
     def producer_update_session(self, db: Session):
@@ -48,7 +48,7 @@ class Action:
         try:
             producers_service.update_session(db, self.cl.username, self.cl.get_settings())
         except Exception as e:
-            logger.error(f"'{self.cl.username}' 계정의 세션 갱신 중 오류 발생: {e}", exc_info=True)
+            logger.error(f"'{self.cl.username}' 계정의 세션 갱신 중 오류 발생: {e}")
             raise
 
     def media_info(self, media_pk: str) -> Media:

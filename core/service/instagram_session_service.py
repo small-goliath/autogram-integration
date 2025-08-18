@@ -16,7 +16,7 @@ def get_session_settings(db: Session, username: str) -> dict | None:
         try:
             return json.loads(session_record.session_data.decode('utf-8'))
         except Exception as e:
-            logger.error(f"{username}의 세션을 로드하는 중 오류 발생: {e}", exc_info=True)
+            logger.error(f"{username}의 세션을 로드하는 중 오류 발생: {e}")
             instagram_session_db.delete(db, username)
     return None
 
@@ -48,7 +48,7 @@ def get_session_string(db: Session, username: str) -> str | None:
         try:
             return InstagramClient.settings_to_string(settings)
         except Exception as e:
-            logger.error(f"{username}의 세션 문자열을 가져오는 중 오류 발생: {e}", exc_info=True)
+            logger.error(f"{username}의 세션 문자열을 가져오는 중 오류 발생: {e}")
     logger.warning(f"{username}의 세션 문자열을 가져올 수 없습니다.")
     return None
 

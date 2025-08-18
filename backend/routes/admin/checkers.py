@@ -45,7 +45,7 @@ def register_checker(
     except InstagramLoginError as e:
         raise HTTPException(status_code=401, detail=f"인스타그램 로그인 실패: {e}")
     except Exception as e:
-        logger.error(f"체커 {account.username} 등록 실패: {e}", exc_info=True)
+        logger.error(f"체커 {account.username} 등록 실패: {e}")
         raise HTTPException(status_code=500, detail="예상치 못한 오류가 발생했습니다.")
 
 @router.post("/login/2fa", response_model=MessageResponse)
@@ -61,9 +61,9 @@ def register_checker_2fa(
             message=f"2FA를 성공적으로 완료하고 체커를 등록했습니다: {request.username}"
         )
     except (InstagramLoginError, AlreadyCreatedError) as e:
-        logger.error(f"체커 {request.username}의 2FA 완료 실패: {e}", exc_info=True)
+        logger.error(f"체커 {request.username}의 2FA 완료 실패: {e}")
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        logger.error(f"체커 2FA 중 예상치 못한 오류 발생 {request.username}: {e}", exc_info=True)
+        logger.error(f"체커 2FA 중 예상치 못한 오류 발생 {request.username}: {e}")
         raise HTTPException(status_code=500, detail="예상치 못한 오류가 발생했습니다.")
 

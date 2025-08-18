@@ -197,12 +197,13 @@ def main(db: Session):
 
                 except Exception as e:
                     logger.error(
-                        f"게시물 처리 중 오류 발생 (https://www.instagram.com/p/{media.code}): {e}"
+                        f"게시물 처리 중 오류 발생 (https://www.instagram.com/p/{media.code}): {e}",
+                        exc_info=True,
                     )
                     continue
 
     except Exception as e:
-        logger.critical(f"producer 배치 실행 중 심각한 오류 발생: {e}", exc_info=True)
+        logger.critical(f"producer 배치 실행 중 심각한 오류 발생: {e}")
         discord.send_message(message=f"producer 배치 실패: {e}")
 
     for logged_in_checker in logged_in_checkers:
@@ -212,7 +213,7 @@ def main(db: Session):
                 action: Action = logged_in_checker["action"]
                 action.checker_update_session(db)
         except Exception as e:
-            logger.error(f"'{username}' 계정의 세션 갱신 중 오류 발생: {e}", exc_info=True)
+            logger.error(f"'{username}' 계정의 세션 갱신 중 오류 발생: {e}")
             continue
 
     # NOTE: instagrapi는 대댓글을 조회하는 기능이 없어서 instaloader로 대체
@@ -402,7 +403,7 @@ def main(db: Session):
     #                     )
     #                     continue
     # except Exception as e:
-    #     logger.critical(f"producer 대댓글 작업 중 심각한 오류 발생: {e}", exc_info=True)
+    #     logger.critical(f"producer 대댓글 작업 중 심각한 오류 발생: {e}")
     #     discord.send_message(message=f"producer 대댓글 작업 실패: {e}")
 
     for producer_info in logged_in_producers:
@@ -412,7 +413,7 @@ def main(db: Session):
                 action: Action = producer_info["action"]
                 action.producer_update_session(db)
         except Exception as e:
-            logger.error(f"'{username}' 계정의 세션 갱신 중 오류 발생: {e}", exc_info=True)
+            logger.error(f"'{username}' 계정의 세션 갱신 중 오류 발생: {e}")
             continue
 
     # logger.info("모든 작업 완료 후 checker 세션을 갱신합니다.")
@@ -423,7 +424,7 @@ def main(db: Session):
     #             client: Instaloader = logged_in_checker["client"]
     #             client.save_session_to_file(filename=f"{INSTALOADER_SESSION_PRE_PATH}{username}")
     #     except Exception as e:
-    #         logger.error(f"'{username}' 계정의 세션 갱신 중 오류 발생: {e}", exc_info=True)
+    #         logger.error(f"'{username}' 계정의 세션 갱신 중 오류 발생: {e}")
     #         continue
 
     logger.info("producer로부터 일괄 댓글 및 좋아요 배치를 종료합니다.")

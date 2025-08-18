@@ -32,7 +32,7 @@ def login(db: Session, username: str, password: str) -> Client:
         raise
 
     except Exception as e:
-        logger.error(f"{username} 로그인 실패: {e}", exc_info=True)
+        logger.error(f"{username} 로그인 실패: {e}")
         error_message = "로그인에 실패했습니다. 사용자 이름과 비밀번호를 확인하세요."
         error_str = str(e)
         if "checkpoint" in error_str.lower():
@@ -65,12 +65,12 @@ def login_2fa(db: Session, username: str, verification_code: str) -> Client:
         return instagram_client.cl
 
     except LoginError as e:
-        logger.error(f"{username}의 2FA 완료 실패: {e}", exc_info=True)
+        logger.error(f"{username}의 2FA 완료 실패: {e}")
         if username in active_clients:
             del active_clients[username]
         raise InstagramLoginError("잘못된 2FA 코드입니다.") from e
     except Exception as e:
-        logger.error(f"{username}의 로그인 실패: {e}", exc_info=True)
+        logger.error(f"{username}의 로그인 실패: {e}")
         if username in active_clients:
             del active_clients[username]
         raise LoginError("로그인할 수 없습니다.") from e
@@ -84,5 +84,5 @@ def login_with_session(username: str, session: str) -> Client:
         logger.info(f"{username} 세션으로 로그인 성공.")
         return instagram_client.cl
     except Exception as e:
-        logger.error(f"{username} 세션으로 로그인 실패: {e}", exc_info=True)
+        logger.error(f"{username} 세션으로 로그인 실패: {e}")
         raise InstagramLoginError("세션으로 로그인하지 못했습니다. 세션이 만료되었거나 유효하지 않을 수 있습니다.") from e

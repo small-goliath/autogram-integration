@@ -15,5 +15,5 @@ def get_verifications(db: Session = Depends(get_db)):
     try:
         return verification_service.get_verifications_service(db)
     except Exception as e:
-        logger.error(f"SNS 품앗이 인증 목록 조회 실패: {e}", exc_info=True)
+        logger.error(f"SNS 품앗이 인증 목록 조회 실패: {e}")
         raise HTTPException(status_code=500, detail="인증 목록을 가져오는데 실패했습니다.")

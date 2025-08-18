@@ -38,10 +38,10 @@ async def producer_login(
         logger.warning(f"{request.username}에 2FA가 필요합니다")
         return MessageResponse(message="2FA 코드가 필요합니다.", two_factor_required=True)
     except (InstagramLoginError, AlreadyCreatedError, InvalidPropertyError) as e:
-        logger.error(f"Producer {request.username} 로그인 실패: {e}", exc_info=True)
+        logger.error(f"Producer {request.username} 로그인 실패: {e}")
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        logger.error(f"Producer 로그인 중 예상치 못한 오류 발생 {request.username}: {e}", exc_info=True)
+        logger.error(f"Producer 로그인 중 예상치 못한 오류 발생 {request.username}: {e}")
         raise HTTPException(status_code=500, detail="예상치 못한 오류가 발생했습니다.")
 
 @router.post("/login/2fa", response_model=MessageResponse)
@@ -57,10 +57,10 @@ async def producer_login_2fa(
             message=f"2FA를 성공적으로 완료하고 Producer를 등록했습니다: {request.username}"
         )
     except (InstagramLoginError, AlreadyCreatedError, InvalidPropertyError) as e:
-        logger.error(f"Producer {request.username}의 2FA 완료 실패: {e}", exc_info=True)
+        logger.error(f"Producer {request.username}의 2FA 완료 실패: {e}")
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        logger.error(f"Producer 2FA 중 예상치 못한 오류 발생 {request.username}: {e}", exc_info=True)
+        logger.error(f"Producer 2FA 중 예상치 못한 오류 발생 {request.username}: {e}")
         raise HTTPException(status_code=500, detail="예상치 못한 오류가 발생했습니다.")
 
 @router.get("", response_model=ProducersResponse)

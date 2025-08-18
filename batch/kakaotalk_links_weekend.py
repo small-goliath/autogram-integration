@@ -38,7 +38,7 @@ def run_batch(db: Session):
 
     except Exception as e:
         error_message = f"배치 실행 중 오류 발생: {e}"
-        logger.error(error_message, exc_info=True)
+        logger.error(error_message)
         discord.send_message(error_message)
         sys.exit(1)
 

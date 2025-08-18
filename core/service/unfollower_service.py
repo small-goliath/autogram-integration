@@ -37,7 +37,7 @@ def _run_unfollow_check_logic(username: str):
                 cl.set_settings(settings)
                 cl.login_by_sessionid(cl.sessionid)
             except Exception:
-                logger.error(f"[{username}] 세션 로딩 오류.", exc_info=True)
+                logger.error(f"[{username}] 세션 로딩 오류.")
                 set_status(db, "error", message="세션이 만료되었거나 유효하지 않습니다. 다시 로그인해주세요.")
                 instagram_session_db.delete(db, username)
                 return
@@ -71,19 +71,19 @@ def _run_unfollow_check_logic(username: str):
             logger.info(f"[{username}] 언팔로워 확인이 완료되었습니다.")
 
     except UserNotFound:
-        logger.error(f"[{username}] 프로필을 찾을 수 없습니다.", exc_info=True)
+        logger.error(f"[{username}] 프로필을 찾을 수 없습니다.")
         with get_db_session_context() as db:
             set_status(db, "error", message=f"인스타그램 프로필 '{username}'을(를) 찾을 수 없습니다.")
     except LoginRequired:
-        logger.error(f"[{username}] 프로필을 보려면 로그인이 필요합니다.", exc_info=True)
+        logger.error(f"[{username}] 프로필을 보려면 로그인이 필요합니다.")
         with get_db_session_context() as db:
             set_status(db, "error", message=f"'{username}' 프로필을 보려면 로그인이 필요합니다. 다시 로그인해주세요.")
     except PrivateAccount:
-        logger.error(f"[{username}] 비공개 계정입니다.", exc_info=True)
+        logger.error(f"[{username}] 비공개 계정입니다.")
         with get_db_session_context() as db:
             set_status(db, "error", message=f"'{username}'님은 비공개 계정이라 확인할 수 없습니다.")
     except Exception as e:
-        logger.error(f"[{username}] 알 수 없는 오류가 발생했습니다: {e}", exc_info=True)
+        logger.error(f"[{username}] 알 수 없는 오류가 발생했습니다: {e}")
         with get_db_session_context() as db:
             set_status(db, "error", message=f"알 수 없는 오류가 발생했습니다: {str(e)}")
 

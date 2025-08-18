@@ -22,7 +22,7 @@ async def start_unfollow_check(
     except UserNotPermittedError as e:
         raise HTTPException(status_code=403, detail=str(e))
     except Exception as e:
-        logger.error(f"[{username}] 언팔로워 확인 시작 중 오류 발생: {e}", exc_info=True)
+        logger.error(f"[{username}] 언팔로워 확인 시작 중 오류 발생: {e}")
         raise HTTPException(status_code=500, detail="내부 서버 오류가 발생했습니다.")
 
 
@@ -31,6 +31,6 @@ async def get_unfollow_check_status(username: str, db: Session = Depends(get_db)
     try:
         return unfollower_service.get_unfollow_check_status_service(db, username)
     except Exception as e:
-        logger.error(f"[{username}] 언팔로워 확인 상태 조회 중 오류 발생: {e}", exc_info=True)
+        logger.error(f"[{username}] 언팔로워 확인 상태 조회 중 오류 발생: {e}")
         raise HTTPException(status_code=500, detail="내부 서버 오류가 발생했습니다.")
 

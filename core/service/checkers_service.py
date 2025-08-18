@@ -66,7 +66,7 @@ def update_session(db: Session, username: str, settings: dict):
 def update_password(db: Session, username: str, password: str):
     """패스워드를 데이터베이스에 업데이트합니다."""
     logger.info(f"'{username}' 계정의 세션을 갱신합니다.")
-    checker = checker_db.update_session(db, username, password)
+    checker = checker_db.update_password(db, username, password)
     if not checker:
         logger.warning(f"'{username}' 계정의 패스워드를 갱신하는데 실패했습니다. DB에서 사용자를 찾을 수 없습니다.")
     else:
