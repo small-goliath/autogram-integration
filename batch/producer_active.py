@@ -124,7 +124,6 @@ def main(db: Session):
                     logger.info(f"게시물 처리 중: https://www.instagram.com/p/{media.code}")
 
                     # Checker를 번갈아가며 댓글 중복 확인
-                    commenting_usernames = set()
                     if logged_in_checkers:
                         comments_fetched = False
                         last_comment_exception = None
@@ -135,21 +134,8 @@ def main(db: Session):
                             checker_username = checker_info["username"]
                             try:
                                 logger.info(f"'{checker_username}' 계정으로 게시물 {media.code}의 댓글 목록 조회 시도.")
-                                comments: List[Comment] = []
-                                min_id = None
-                                while True:
-                                    comments_chunk, next_min_id = action.media_comments_chunk(
-                                        media.pk, max_amount=100, min_id=min_id
-                                    )
-                                    comments.extend(comments_chunk)
-                                    if not next_min_id:
-                                        break
-                                    min_id = next_min_id
-                                    sleep_to_log(1)
-                                commenting_usernames = {
-                                    c.user.username for c in comments
-                                }
-                                logger.info(f"'{checker_username}' 계정으로 게시물 {media.code}의 기존 댓글 {len(commenting_usernames)}개 확인.")
+                                commenters = action.get_commenters(media.pk)
+                                logger.info(f"'{checker_username}' 계정으로 게시물 {media.code}의 기존 댓글 {len(commenters)}개 확인.")
                                 comments_fetched = True
                                 break
                             except Exception as e:
@@ -190,7 +176,7 @@ def main(db: Session):
                         action = producer_info["action"]
                         if (
                             producer_username == media.user.username
-                            or producer_username in commenting_usernames
+                            or producer_username in commenters
                         ):
                             continue
 

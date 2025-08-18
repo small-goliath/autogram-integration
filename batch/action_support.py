@@ -1,11 +1,12 @@
 
 import logging
-from typing import List, Tuple
+from typing import List, Set
 
 from instagrapi import Client
 from instagrapi.types import Comment, Media
 from sqlalchemy.orm import Session
 
+from batch.util import sleep_to_log
 from core.service import checkers_service, producers_service
 
 
@@ -19,9 +20,20 @@ class Action:
         logger.info(f"{shortcode}의 미디어 식별자를 가져옵니다.")
         return self.cl.media_pk_from_code(shortcode)
     
-    def media_comments_chunk(self, media_pk: str, max_amount: int = 100, min_id: str = None) -> Tuple[List[Comment], str]:
+    def get_commenters(self, media_pk: str, max_amount: int = 100) -> Set[Comment]:
         logger.info(f"{media_pk}의 댓글을 {max_amount}씩 모두 가져옵니다.")
-        return self.cl.media_comments_chunk(media_pk, max_amount, min_id)
+        comments: List[Comment] = []
+        min_id = None
+        while True:
+            comments_chunk, next_min_id = self.cl.media_comments_chunk(
+                media_pk, max_amount=max_amount, min_id=min_id
+            )
+            comments.extend(comments_chunk)
+            if not next_min_id:
+                break
+            min_id = next_min_id
+            sleep_to_log(1)
+        return {comment.user.username for comment in comments}
     
     def checker_update_session(self, db: Session):
         logger.info(f"{self.cl.username}의 세션을 갱신합니다.")

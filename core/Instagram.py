@@ -7,13 +7,12 @@ from dotenv import load_dotenv
 from instagrapi import Client
 from instagrapi.exceptions import (
     BadPassword,
-    ChallengeRequired,
     PleaseWaitFewMinutes,
     TwoFactorRequired,
     LoginRequired,
     RateLimitError
 )
-from core.db_transaction import read_only_transactional, transaction_scope, transactional
+from core.db_transaction import read_only_transactional, transactional
 from core.exceptions import Instagram2FAError, InstagramError, LoginError
 from core.service import checkers_service
 from core.service.models import CheckerDetail
@@ -21,13 +20,8 @@ from core.service.models import CheckerDetail
 logger = logging.getLogger(__name__)
 load_dotenv()
 CHANGE_PASSWORD_USERNAME = os.getenv("CHANGE_PASSWORD_USERNAME")
-otps = {
-        "muscle.er": "EAEOKDFMCWCHR6MMJS2Q7F62YLAYHHNA",
-        "_doto.ri_": "CV2T7HTW77YHS77L4ZPNOQFAU7BWKYUG",
-        "protein.er": "QRE4RTBCKKLAVKFJMA673NVWZF7BQTGI",
-        "enca.re": "LAOKNBAUYHGZ72FPCERDX4OIQDOJJXHL",
-        "proscle.er": "LKIRS3CAM2XS3LFZ66JD4GLYM5M3BLEY"
-    }
+otps_json = os.getenv("INSTAGRAM_OTPS")
+otps = json.loads(otps_json) if otps_json else {}
 
 def get_OTP(username: str) -> str:
     otp_num = otp.get_totp(otps[username])
@@ -62,9 +56,6 @@ class InstagramClient:
                 return True
             except:
                 return False
-        elif isinstance(e, ChallengeRequired):
-            logger.info(f"{client.username} 패스워드 변경 후 재로그인 중...")
-            return False
         raise e
     
     def _change_password_handler(username):

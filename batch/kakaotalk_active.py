@@ -4,6 +4,7 @@ import os
 import random
 import sys
 from typing import List
+from instagrapi.types import Comment
 import requests
 from sqlalchemy.orm import Session
 from batch import util
@@ -112,10 +113,11 @@ def main(db: Session):
                     action: Action = checker_info['action']
                     checker_username = checker_info['username']
                     try:
-                        logger.info(f"'{checker_username}' 계정으로 media_info 조회 시도: {target.link}")
+                        logger.info(f"'{checker_username}' 계정으로 피드 정보 조회 시도: {target.link}")
                         media_pk = action.media_pk(shortcode)
                         media_info = action.media_info(media_pk)
-                        logger.info(f"'{checker_username}' 계정으로 media_info 조회 성공.")
+                        commenters = action.get_commenters(media_pk)
+                        logger.info(f"'{checker_username}' 계정으로 피드 정보 조회 성공.")
                         break
                     except Exception as e:
                         last_exception = e
@@ -130,7 +132,7 @@ def main(db: Session):
 
                 # 댓글 생성 API 호출
                 if media_info.caption_text:
-                    logger.info("댓글 생성 API를 호출합니다.")
+                    logger.info("댓글을 생성합니다.")
                     caption = str(media_info.caption_text).replace("\n", " ")
                     response = requests.post(COMMENT_API_URL, json={'text': caption, "amount": len(logged_in_producers)}, timeout=30)
                     response.raise_for_status()
@@ -145,10 +147,11 @@ def main(db: Session):
                 # 모든 producer가 좋아요 및 댓글 수행
                 random.shuffle(comment_texts)
                 logger.info(f"게시물 {shortcode}에 모든 producer가 좋아요 및 댓글을 작성합니다.")
+                
                 for producer_info in logged_in_producers:
                     action = producer_info['action']
                     producer_username = producer_info['username']
-                    if producer_username == target.username:
+                    if producer_username == target.username or producer_username in commenters:
                         continue
                     
                     try:
@@ -161,11 +164,11 @@ def main(db: Session):
                     except IndexError as e:
                             logger.error(f"댓글이 모자랍니다: {e}")
                     except Exception as e:
-                        logger.error(f"'{producer_username}' 계정으로 게시물 처리 중 오류 발생 ({target.link}): {e}", exc_info=True)
+                        logger.error(f"'{producer_username}' 계정으로 게시물 처리 중 오류 발생 ({target.link}): {e}")
                         continue
             
             except Exception as e:
-                logger.error(f"게시물 처리 중 오류 발생 ({target.link}): {e}", exc_info=True)
+                logger.error(f"게시물 처리 중 오류 발생 ({target.link}): {e}")
                 continue
 
         for producer_info in logged_in_producers:

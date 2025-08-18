@@ -101,19 +101,7 @@ def verify_actions(db):
                     logger.info(f"'{checker_username}'으로 {post_info.username}의 게시물 {log_prefix}검증 중: {post_info.link}")
                     media_pk = action.media_pk(shortcode)
                     media_info: Media = action.media_info(media_pk)
-                    
-                    comments: List[Comment] = []
-                    min_id = None
-                    while True:
-                        comments_chunk, next_min_id = action.media_comments_chunk(
-                            media_pk, max_amount=100, min_id=min_id
-                        )
-                        comments.extend(comments_chunk)
-                        if not next_min_id:
-                            break
-                        min_id = next_min_id
-                        sleep_to_log(1)
-                    commenters = {comment.user.username for comment in comments}
+                    commenters = action.get_commenters(media_pk=media_pk)
 
                     for user in all_users:
                         if user.username == media_info.user.username:
