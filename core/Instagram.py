@@ -12,6 +12,7 @@ from instagrapi.exceptions import (
     LoginRequired,
     RateLimitError
 )
+from batch.action_support import Action
 from core.db_transaction import read_only_transactional, transactional
 from core.exceptions import Instagram2FAError, InstagramError, LoginError
 from core.service import checkers_service
@@ -53,6 +54,9 @@ class InstagramClient:
             try:
                 client.login(username, password, verification_code=get_OTP(username))
                 client.get_notes()
+                with transactional() as db:
+                    action = Action(cl=client)
+                    action.checker_update_session()
                 return True
             except:
                 return False
