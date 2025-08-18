@@ -55,6 +55,7 @@ class Checker(Base):
     id = Column(Integer, primary_key=True)
     username = Column(String(32), nullable=False, unique=True)
     session = Column(Text, nullable=False, unique=True)
+    pwd = Column(String(32), nullable=False)
 
 class UnfollowerCheck(Base):
     __tablename__ = "unfollower_checks"

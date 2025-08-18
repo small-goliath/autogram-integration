@@ -6,6 +6,7 @@ class CheckerDetail(BaseModel):
     id: int
     username: str
     session: str
+    pwd: str
     
     class Config:
         from_attributes = True

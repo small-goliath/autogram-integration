@@ -14,6 +14,8 @@ from instagrapi.exceptions import (
     RateLimitError
 )
 from core.exceptions import Instagram2FAError, InstagramError, LoginError
+from core.service import checkers_service
+from core.service.models import CheckerDetail
 
 logger = logging.getLogger(__name__)
 load_dotenv()
@@ -40,9 +42,13 @@ class InstagramClient:
             return False
         elif isinstance(e, (LoginRequired, PleaseWaitFewMinutes)):
             logger.info(f"{client.username}/{client.password} 재로그인 중...")
+            checker: CheckerDetail = checkers_service.get_checker_by_username(client.username)
+            if not checker:
+                logger.info(f"{client.username}는 로그인할 수 없습니다...")
+                return False
 
             username = client.username
-            password = client.password
+            password = checker.pwd
             old_session = client.get_settings()
 
             client.set_settings({})
@@ -66,6 +72,7 @@ class InstagramClient:
         chars = list("abcdefghijklmnopqrstuvwxyz1234567890!&£@#")
         password = "".join(random.sample(chars, 8))
         logger.info(f"{username}의 패스워드를 {password}로 변경합니다.")
+        checkers_service.update_password(username, password)
         return password
 
     def __init__(self, username: str, password: str = None, verification_code: str = None, session: str = None):
@@ -100,7 +107,6 @@ class InstagramClient:
         logger.info(f"{self.username} 세션으로 로그인을 시도합니다.")
         try:
             self.cl.set_settings(self.session)
-            self.cl.login(self.username, "DEhxhfL1004!")
         except TwoFactorRequired as e:
             raise Instagram2FAError("2단계 인증이 필요합니다.") from e
         except BadPassword as e:
