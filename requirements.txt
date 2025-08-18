@@ -14,3 +14,4 @@ requests-oauthlib==2.0.0
 SQLAlchemy==2.0.41
 urllib3==2.5.0
 uvicorn==0.35.0
+onetimepass==1.0.1
