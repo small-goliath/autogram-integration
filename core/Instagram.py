@@ -60,21 +60,22 @@ class InstagramClient:
                 return False
         raise e
     
-    def _change_password_handler(username):
-        if username not in CHANGE_PASSWORD_USERNAME:
-            logger.warning(f"{username} 계정은 패스워드를 변경하지 않습니다.")
-            pass
-        with transactional() as db:
-            chars = list("abcdefghijklmnopqrstuvwxyz1234567890!&£@#")
-            password = "".join(random.sample(chars, 8))
-            logger.info(f"{username}의 패스워드를 {password}로 변경합니다.")
-            checkers_service.update_password(username, password)
-            return password
 
     def __init__(self, username: str, password: str = None, verification_code: str = None, session: str = None):
+        def change_password_handler(username):
+            if username not in CHANGE_PASSWORD_USERNAME:
+                logger.warning(f"{username} 계정은 패스워드를 변경하지 않습니다.")
+                pass
+            with transactional() as db:
+                chars = list("abcdefghijklmnopqrstuvwxyz1234567890!&£@#")
+                password = "".join(random.sample(chars, 8))
+                logger.info(f"{username}의 패스워드를 {password}로 변경합니다.")
+                checkers_service.update_password(username, password)
+                return password
+
         self.cl = Client()
         self.cl.handle_exception = self._handle_exception
-        self.cl.change_password_handler = self._change_password_handler
+        self.cl.change_password_handler = change_password_handler
         self.username = username
         self.password = password
         self.verification_code = verification_code
