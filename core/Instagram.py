@@ -7,7 +7,10 @@ from dotenv import load_dotenv
 from instagrapi import Client
 from instagrapi.exceptions import (
     BadPassword,
+    ChallengeRequired,
     PleaseWaitFewMinutes,
+    RecaptchaChallengeForm,
+    SelectContactPointRecoveryForm,
     TwoFactorRequired,
     LoginRequired,
     RateLimitError
@@ -28,14 +31,13 @@ def get_OTP(username: str) -> str:
     logger.info(f"{username}의 otp는 {otp_num}입니다.")
     return str(otp_num)
 
+def get_new_password():
+    chars = list("abcdefghijklmnopqrstuvwxyz1234567890!&£@#")
+    return "".join(random.sample(chars, 8))
+
 class InstagramClient:
     def _handle_exception(self, client: Client, e):
-        logger.info(f"{client.username} 예외 핸들러 실행 : {e}")
-
-        if isinstance(e, BadPassword):
-            client.logger.exception(e)
-            return False
-        elif isinstance(e, (LoginRequired, PleaseWaitFewMinutes)):
+        def _relogin(client: Client):
             with read_only_transactional() as db:
                 checker: CheckerDetail = checkers_service.get_checker_by_username(db, client.username)
                 if not checker:
@@ -50,14 +52,40 @@ class InstagramClient:
             client.set_settings({})
             client.set_uuids(old_session["uuids"])
 
+            while True:
+                try:
+                    client.login(username, password, verification_code=get_OTP(username))
+                    client.get_notes()
+                    with transactional() as db:
+                        checkers_service.update_session(db, client.username, client.get_settings())
+                    return True
+                except Exception as e:
+                    if "Two-factor authentication required" in str(e) or "보안 코드를 확인하고 다시 시도해보세요." in str(e):
+                        logger.warning(f"{username} 재로그인 재시도합니다...")
+
+        logger.info(f"{client.username} 예외 핸들러 실행 : {e}")
+
+        if isinstance(e, BadPassword):
+            client.logger.exception(e)
+            return False
+        elif isinstance(e, ChallengeRequired):
             try:
-                client.login(username, password, verification_code=get_OTP(username))
-                client.get_notes()
-                with transactional() as db:
-                    checkers_service.update_session(db, client.username, client.get_settings())
-                return True
-            except:
+                if client.challenge_resolve(client.last_json):
+                    logger.info("Succeed challenge resolve!!!")
+                else:
+                    logger.info("Failed challenge resolve!!!")
+            except (
+                ChallengeRequired,
+                SelectContactPointRecoveryForm,
+                RecaptchaChallengeForm,
+            ) as e:
+                logger.info("Failed challenge resolve!!!")
                 return False
+            with transactional() as db:
+                checkers_service.update_session(db, client.username, client.get_settings())
+            return True
+        elif isinstance(e, (LoginRequired, PleaseWaitFewMinutes)):
+            return _relogin(client=client)
         raise e
     
 
@@ -67,8 +95,7 @@ class InstagramClient:
                 logger.warning(f"{username} 계정은 패스워드를 변경하지 않습니다.")
                 pass
             with transactional() as db:
-                chars = list("abcdefghijklmnopqrstuvwxyz1234567890!&£@#")
-                password = "".join(random.sample(chars, 8))
+                password = get_new_password()
                 logger.info(f"{username}의 패스워드를 {password}로 변경합니다.")
                 checkers_service.update_password(username, password)
                 return password
@@ -76,6 +103,7 @@ class InstagramClient:
         self.cl = Client()
         self.cl.handle_exception = self._handle_exception
         self.cl.change_password_handler = change_password_handler
+        self.cl.challenge_resolve
         self.username = username
         self.password = password
         self.verification_code = verification_code

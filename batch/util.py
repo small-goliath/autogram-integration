@@ -29,7 +29,7 @@ def sleep_by_count(count: int, amount: int, sec: int):
 
 def sleep_to_log(sec: int = 0):
     if sec == 0:
-        sec = random.randint(150, 200)
+        sec = random.randint(10, 100)
     logger.info(f"{sec}초 중단.")
     sleep(sec)
 

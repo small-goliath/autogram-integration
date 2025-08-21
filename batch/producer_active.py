@@ -112,6 +112,8 @@ def main(db: Session):
                     last_exception = e
                     logger.warning(f"'{checker_username}' 계정으로 '{consumer.username}'의 게시물 조회 실패: {e}. 다른 checker로 재시도합니다.")
                     continue
+                finally:
+                    sleep_to_log()
 
             if not medias:
                 error_message = f"'{consumer.username}'의 게시물 조회에 모든 checker가 실패했습니다. 최종 오류: {last_exception}"
@@ -142,6 +144,8 @@ def main(db: Session):
                                 last_comment_exception = e
                                 logger.warning(f"'{checker_username}' 계정으로 게시물 {media.code}의 댓글을 가져오는 데 실패했습니다: {e}. 다른 checker로 재시도합니다.")
                                 continue
+                            finally:
+                                sleep_to_log()
 
                         if not comments_fetched:
                             logger.warning(f"게시물 {media.code}의 댓글을 가져오는 데 모든 checker가 실패했습니다. 최종 오류: {last_comment_exception}. 댓글 작성을 건너뜁니다.")
@@ -182,9 +186,9 @@ def main(db: Session):
 
                         try:
                             logger.info(f"'{producer_username}' 계정으로 좋아요 및 댓글 작성 시도.")
-                            action.media_like(media.pk)
-                            sleep_to_log(1)
                             action.media_comment(media.pk, comment_texts.pop())
+                            sleep_to_log(1)
+                            action.media_like(media.pk)
                             logger.info(f"'{producer_username}' 계정으로 좋아요 및 댓글 작성 완료.")
                             sleep_to_log(10)
                         except IndexError as e:

@@ -73,19 +73,7 @@ def verify_actions(db: Session):
                     logger.info(f"'{checker_username}' 계정으로 '{link}' 링크에 대한 {len(user_verifications)}개의 활동을 검증합니다.")
                     with transaction_scope(db):
                         media_pk = action.media_pk(shortcode)
-                        
-                        comments: List[Comment] = []
-                        min_id = None
-                        while True:
-                            comments_chunk, next_min_id = action.media_comments_chunk(
-                                media_pk, max_amount=100, min_id=min_id
-                            )
-                            comments.extend(comments_chunk)
-                            if not next_min_id:
-                                break
-                            min_id = next_min_id
-                            sleep_to_log(1)
-                        commenters = {comment.user.username for comment in comments}
+                        commenters = action.get_commenters(media_pk)
 
                         for verification in user_verifications:
                             if verification.username in commenters:
@@ -98,6 +86,8 @@ def verify_actions(db: Session):
                 except Exception as e:
                     logger.warning(f"'{checker_username}' 계정으로 '{link}' 링크 처리 중 오류 발생: {e}. 다른 checker로 재시도합니다.")
                     continue
+                finally:
+                    sleep_to_log()
             
             if not link_processed:
                 error_message = f"'{link}' 링크 처리 중 모든 checker 계정으로 시도했으나 실패했습니다. 최종 오류: {last_exception}"
