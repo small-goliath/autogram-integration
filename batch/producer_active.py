@@ -5,15 +5,14 @@ import random
 import sys
 from typing import List
 
-from instagrapi.types import Comment, Media
+from instagrapi.types import Media
 import requests
 from dotenv import load_dotenv
-from sqlalchemy.orm import Session
 
 from batch.action_support import Action
 from batch.notification import Discord
 from batch.util import sleep_to_log
-from core.db_transaction import read_only_transaction_scope, transaction_scope, with_session
+from core.db_transaction import read_only_transactional, transactional
 from core.service import (
     checkers_service,
     consumer_service,
@@ -26,9 +25,7 @@ load_dotenv()
 logging.config.fileConfig("batch/logging.conf", disable_existing_loggers=False)
 logger = logging.getLogger(__name__)
 
-
-@with_session
-def main(db: Session):
+def main():
     """
     producer가 consumer들의 최신 게시물에 대해 일괄 댓글 및 좋아요를 수행합니다.
     """
@@ -42,7 +39,7 @@ def main(db: Session):
         logged_in_producers: List[dict[str, Action | str]] = []
         logged_in_checkers: List[dict[str, Action | str]] = []
         consumers: List[ConsumerDetail] = []
-        with read_only_transaction_scope(db):
+        with read_only_transactional() as db:
             producers: List[ProducerDetail] = producers_service.get_producers(db)
             if not producers:
                 logger.error("producer 계정이 등록되어 있지 않습니다.")
@@ -212,7 +209,7 @@ def main(db: Session):
 
     for logged_in_checker in logged_in_checkers:
         try:
-            with transaction_scope(db):
+            with transactional() as db:
                 username = logged_in_checker["username"]
                 action: Action = logged_in_checker["action"]
                 action.checker_update_session(db)
@@ -412,7 +409,7 @@ def main(db: Session):
 
     for producer_info in logged_in_producers:
         try:
-            with transaction_scope(db):
+            with transactional() as db:
                 username = producer_info["username"]
                 action: Action = producer_info["action"]
                 action.producer_update_session(db)

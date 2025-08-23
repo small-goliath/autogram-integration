@@ -3,12 +3,10 @@ import logging.config
 import sys
 from typing import List
 from collections import defaultdict
-from instagrapi.types import Comment
-from sqlalchemy.orm import Session
 from batch import util
 from batch.action_support import Action
 from batch.util import sleep_to_log
-from core.db_transaction import transaction_scope, with_session
+from core.db_transaction import read_only_transactional, transactional
 from core.service import checkers_service, instagrapi_login_service, verification_service
 from batch.notification import Discord
 from core.service.models import CheckerDetail, VerificationDetail
@@ -16,17 +14,17 @@ from core.service.models import CheckerDetail, VerificationDetail
 logging.config.fileConfig('batch/logging.conf', disable_existing_loggers=False)
 logger = logging.getLogger(__name__)
 
-@with_session
-def verify_actions(db: Session):
+def verify_actions():
     logger.info("카카오톡 활동 검증 갱신 배치를 시작합니다.")
     discord = Discord()
     
     try:
-        checkers: List[CheckerDetail] = checkers_service.get_checkers(db)
-        if not checkers:
-            logger.error("활동 검증에 사용할 checker 계정이 등록되어 있지 않습니다.")
-            discord.send_message("활동 검증에 사용할 checker 계정이 등록되어 있지 않습니다.")
-            sys.exit(1)
+        with read_only_transactional() as db:
+            checkers: List[CheckerDetail] = checkers_service.get_checkers(db)
+            if not checkers:
+                logger.error("활동 검증에 사용할 checker 계정이 등록되어 있지 않습니다.")
+                discord.send_message("활동 검증에 사용할 checker 계정이 등록되어 있지 않습니다.")
+                sys.exit(1)
         
         logged_in_checkers: List[dict[str, Action | str]] = []
         for checker in checkers:
@@ -42,11 +40,11 @@ def verify_actions(db: Session):
             logger.error("모든 checker 계정으로 로그인에 실패했습니다.")
             discord.send_message("활동 검증 checker 계정 로그인 실패.")
             sys.exit(1)
-
-        verifications: list[VerificationDetail] = verification_service.get_verifications_service(db)
-        if not verifications:
-            logger.info("검증할 활동이 없습니다.")
-            return
+        with read_only_transactional() as db:
+            verifications: list[VerificationDetail] = verification_service.get_verifications_service(db)
+            if not verifications:
+                logger.info("검증할 활동이 없습니다.")
+                return
 
         grouped_verifications = defaultdict(list)
         for v in verifications:
@@ -71,7 +69,7 @@ def verify_actions(db: Session):
                 
                 try:
                     logger.info(f"'{checker_username}' 계정으로 '{link}' 링크에 대한 {len(user_verifications)}개의 활동을 검증합니다.")
-                    with transaction_scope(db):
+                    with transactional() as db:
                         media_pk = action.media_pk(shortcode)
                         commenters = action.get_commenters(media_pk)
 
@@ -96,7 +94,7 @@ def verify_actions(db: Session):
                 continue
 
         for logged_in_checker in logged_in_checkers:
-            with transaction_scope(db):
+            with transactional() as db:
                 try:
                     action: Action = logged_in_checker["action"]
                     action.checker_update_session(db)

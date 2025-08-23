@@ -4,14 +4,14 @@ import sys
 from typing import List
 
 from dotenv import load_dotenv
-from instagrapi.types import Comment, Media
+from instagrapi.types import Media
 
 from batch import util
 from batch.action_support import Action
 from batch.kakaotalk_parsing import parsing
 from batch.notification import Discord
 from batch.util import sleep_to_log
-from core.db_transaction import with_session
+from core.db_transaction import read_only_transactional, transactional
 from core.entities import UserActionVerification
 from core.service import (checkers_service, instagrapi_login_service, users_service, verification_service)
 from core.service.models import CheckerDetail, KakaoTalk, UserDetail
@@ -20,8 +20,7 @@ load_dotenv()
 logging.config.fileConfig('batch/logging.conf', disable_existing_loggers=False)
 logger = logging.getLogger(__name__)
 
-@with_session
-def verify_actions(db):
+def verify_actions():
     """
     카카오톡으로 공유한 인스타그램 게시물에 대해
     sns_raise_user들이 좋아요와 댓글을 남겼는지 확인하고,
@@ -39,11 +38,12 @@ def verify_actions(db):
             return
 
         # 2. checker 계정 정보 조회
-        checkers: List[CheckerDetail] = checkers_service.get_checkers(db)
-        if not checkers:
-            logger.error("활동 검증에 사용할 checker 계정이 등록되어 있지 않습니다.")
-            discord.send_message("활동 검증에 사용할 checker 계정이 등록되어 있지 않습니다.")
-            sys.exit(1)
+        with read_only_transactional() as db:
+            checkers: List[CheckerDetail] = checkers_service.get_checkers(db)
+            if not checkers:
+                logger.error("활동 검증에 사용할 checker 계정이 등록되어 있지 않습니다.")
+                discord.send_message("활동 검증에 사용할 checker 계정이 등록되어 있지 않습니다.")
+                sys.exit(1)
 
         # 3. checker 계정으로 로그인 시도
         logged_in_checkers: List[dict[str, Action | str]] = []
@@ -62,10 +62,11 @@ def verify_actions(db):
             sys.exit(1)
 
         # 4. 모든 sns_raise_user 조회
-        all_users: List[UserDetail] = users_service.get_users(db)
-        if not all_users:
-            logger.warning("활동을 검증할 sns_raise_user가 없습니다.")
-            return
+        with read_only_transactional() as db:
+            all_users: List[UserDetail] = users_service.get_users(db)
+            if not all_users:
+                logger.warning("활동을 검증할 sns_raise_user가 없습니다.")
+                return
 
         added_verifications = set()
         saved_count = 0
@@ -97,29 +98,30 @@ def verify_actions(db):
                 checker_username = checker_info['username']
 
                 try:
-                    log_prefix = "재" if iteration_count > 0 else ""
-                    logger.info(f"'{checker_username}'으로 {post_info.username}의 게시물 {log_prefix}검증 중: {post_info.link}")
-                    media_pk = action.media_pk(shortcode)
-                    media_info: Media = action.media_info(media_pk)
-                    commenters = action.get_commenters(media_pk=media_pk)
+                    with transactional() as db:
+                        log_prefix = "재" if iteration_count > 0 else ""
+                        logger.info(f"'{checker_username}'으로 {post_info.username}의 게시물 {log_prefix}검증 중: {post_info.link}")
+                        media_pk = action.media_pk(shortcode)
+                        media_info: Media = action.media_info(media_pk)
+                        commenters = action.get_commenters(media_pk=media_pk)
 
-                    for user in all_users:
-                        if user.username == media_info.user.username:
-                            continue
+                        for user in all_users:
+                            if user.username == media_info.user.username:
+                                continue
 
-                        is_commented = user.username in commenters
+                            is_commented = user.username in commenters
 
-                        if not is_commented:
-                            verification_key = (user.username, post_info.link)
-                            if verification_key not in added_verifications:
-                                v = UserActionVerification(
-                                    username=user.username,
-                                    link=post_info.link
-                                )
-                                if verification_service.save_verification(db, v):
-                                    logger.info(f"새로운 미완료 활동을 기록했습니다: username={v.username}, link={v.link}")
-                                    saved_count += 1
-                                added_verifications.add(verification_key)
+                            if not is_commented:
+                                verification_key = (user.username, post_info.link)
+                                if verification_key not in added_verifications:
+                                    v = UserActionVerification(
+                                        username=user.username,
+                                        link=post_info.link
+                                    )
+                                    if verification_service.save_verification(db, v):
+                                        logger.info(f"새로운 미완료 활동을 기록했습니다: username={v.username}, link={v.link}")
+                                        saved_count += 1
+                                    added_verifications.add(verification_key)
 
                 except Exception as e:
                     log_prefix = "재" if iteration_count > 0 else ""
