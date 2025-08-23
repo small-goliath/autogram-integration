@@ -62,6 +62,9 @@ class InstagramClient:
                 except Exception as e:
                     if "Two-factor authentication required" in str(e) or "보안 코드를 확인하고 다시 시도해보세요." in str(e):
                         logger.warning(f"{username} 재로그인 재시도합니다...")
+                    else:
+                        logger.warning(f"로그인을 할 수 없습니다: {e}")
+                        return False
 
         logger.info(f"{client.username} 예외 핸들러 실행 : {e}")
 
