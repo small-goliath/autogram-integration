@@ -126,6 +126,8 @@ def verify_actions():
                 except Exception as e:
                     log_prefix = "재" if iteration_count > 0 else ""
                     logger.error(f"'{checker_username}'으로 게시물({shortcode}) {log_prefix}처리 중 오류 발생: {e}")
+                    if "Media not found or unavailable" in str(e):
+                        continue
                     discord.send_message(f"'{checker_username}'으로 게시물({shortcode}) {log_prefix}처리 중 오류 발생: {e}")
                     failed_shortcodes.append(shortcode)
 

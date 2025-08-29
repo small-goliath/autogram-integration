@@ -83,6 +83,8 @@ def verify_actions():
 
                 except Exception as e:
                     logger.warning(f"'{checker_username}' 계정으로 '{link}' 링크 처리 중 오류 발생: {e}. 다른 checker로 재시도합니다.")
+                    if "Media not found or unavailable" in str(e):
+                        break
                     continue
                 finally:
                     sleep_to_log()
